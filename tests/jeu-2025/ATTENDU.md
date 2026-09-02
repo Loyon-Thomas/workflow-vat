@@ -61,7 +61,7 @@ Cumul des trimestres = 6 931,40 = annuelle. **Cohérent.**
 Sur les trimestres, le prorata est marqué PROVISOIRE : le CA de l'exercice n'y
 est connu qu'en partie.
 
-**Correspondance eCDF annuelle :**
+**Correspondance eCDF annuelle** (profil `TVA_DECA_2025`, statut VALIDE) :
 
 | | Base | Taxe |
 |---|---|---|
@@ -111,3 +111,22 @@ d'autant. Corrigé, et confirmé depuis par le formulaire officiel :
 
 C'est précisément ce qu'un jeu couvrant toutes les catégories devait faire
 apparaître : aucun des jeux précédents ne contenait d'autoliquidation.
+
+## Ventilation de la TVA en amont — DECM
+
+Les périodiques utilisent la ventilation par origine, absente du formulaire
+annuel :
+
+| Case | Poste | Q4 2025 |
+|---|---|---|
+| 458 | TVA facturée par des assujettis | 2 002,10 |
+| 459 | TVA sur acquisitions intracommunautaires | 0,00 |
+| 460 | TVA sur importations | 0,00 |
+| 461 | TVA autoliquidée (points II.E et F) | 0,00 |
+| 093 | Total TVA en amont | 2 002,10 |
+| 095 | Part non déductible (art. 50) | 380,40 |
+| 102 | TVA en amont déductible | 1 621,70 |
+
+Sur l'annuelle, ces quatre postes ressortent sous « MONTANTS SANS CASE MAPPÉE »
+avec l'indication de la ventilation attendue (stock / immobilisations / frais
+généraux) : le moteur ne peut pas déduire la nature d'une dépense d'une facture.

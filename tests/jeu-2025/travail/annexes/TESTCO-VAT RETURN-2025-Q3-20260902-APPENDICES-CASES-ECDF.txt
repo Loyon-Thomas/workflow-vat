@@ -5,53 +5,59 @@
 Societe    : TESTCO S.a r.l.
 Matricule  : 2020 2400 000
 Periode    : Quarter 3 2025
-Genere le  : 02/09/2026 12:14
+Genere le  : 02/09/2026 12:28
 
-Formulaire      : Declaration mensuelle / trimestrielle - TVA_DECM (TVA_DECM_2020)
-Version source  : 2020M1V002
-STATUT MAPPING  : A_VALIDER
+Formulaire      : Declaration mensuelle / trimestrielle - TVA_DECM (TVA_DECM_2025)
+Version source  : 2025
+STATUT MAPPING  : VALIDE
 
-  Formulaire eCDF TVA_DECM version 2020M1V002 (periode 2020M07). Les cases communes ont ete alignees sur celles relevees sur le TVA_DECA 2025, les identifiants eCDF etant en principe partages entre formulaires - MAIS CE POINT N'EST PAS VERIFIE. La communication officielle du 02/09/2024 ajoute par ailleurs au DECM les champs 481, 482, 491, 492, 493 et modifie les regles du champ 021, non repris ici.
-
-******************************************************************************
-  ATTENTION : les numeros de cases n'ont pas ete valides contre le
-  formulaire en vigueur. Aucun depot ne doit etre effectue sur cette
-  base avant verification.
-******************************************************************************
+  Formulaires officiels eCDF 2025 fournis par le preparateur le 02/09/2026 : "Return for October 2025" (mensuelle) et "Return for the 4th quarter of calendar year 2025" (trimestrielle). Numeros identiques sur les deux ; un seul profil couvre M et Q. Releves sur les sections I a IV. ECART AVEC LE FORMULAIRE ANNUEL : les livraisons intracommunautaires de biens sont en case 457 au DECM et 013 au DECA. Les identifiants eCDF ne sont donc PAS integralement partages entre formulaires.
 
 ------------------------------------------------------------------------------
 CASE   LIBELLE                                       MONTANT EUR
 ------------------------------------------------------------------------------
 
 TURNOVER
-012    Chiffre d'affaires global (base)                 53000.00
-013    Livraisons intracommunautaires de biens (base)       22000.00
+012    Overall turnover (base)                          53000.00
+021    Exemptions and deductible amounts (base)         22000.00
+022    Taxable turnover (012-021) (base)                31000.00
+457    Intra-Community supply of goods (base)           22000.00
 
 AVAL
-701    Base / taxe au taux normal 17% (base)            25000.00
-702    Base / taxe au taux normal 17%                    4250.00
-703    Base / taxe au taux intermediaire 14% (base)        6000.00
-704    Base / taxe au taux intermediaire 14%              840.00
+037    Breakdown of taxable turnover - total (base)       31000.00
+046    Breakdown of taxable turnover - total             5090.00
+701    Taxable turnover at 17% (base)                   25000.00
+702    Taxable turnover at 17%                           4250.00
+703    Taxable turnover at 14% (base)                    6000.00
+704    Taxable turnover at 14%                            840.00
 
 AUTOLIQUIDATION
-051    Total acquisitions intracommunautaires (base)        2800.00
-056    Total acquisitions intracommunautaires             476.00
-409    Total prestations de services recues (base)        6000.00
-410    Total prestations de services recues              1020.00
-711    Acquisitions intracommunautaires 17% (base)        2800.00
-712    Acquisitions intracommunautaires 17%               476.00
-741    Prestations UE 17% (base)                         6000.00
-742    Prestations UE 17%                                1020.00
+051    Intra-Community acquisitions of goods - to (base)        2800.00
+056    Intra-Community acquisitions of goods - to         476.00
+409    Services received - customer liable, total (base)        6000.00
+410    Services received - customer liable, total        1020.00
+436    Services received from EU suppliers (base)        6000.00
+462    Services received from EU suppliers               1020.00
+711    Intra-Community acquisitions at 17% (base)        2800.00
+712    Intra-Community acquisitions at 17%                476.00
+741    Services received from EU suppliers at 17% (base)        6000.00
+742    Services received from EU suppliers at 17%        1020.00
 
 AMONT
-093    Total TVA en amont                                1505.00
-095    Part non recuperable (art. 50)                     285.95
-102    TVA en amont deductible                           1219.05
+093    Total input tax                                   1505.00
+458    Invoiced by other taxable persons (Art. 48           9.00
+459    Due on intra-Community acquisitions (Art.          476.00
+460    Due or paid on importation (Art. 48(1)(c))           0.00
+461    Due under the reverse charge (points II.E         1020.00
+095    Non-deductible proportion (Art. 50)                285.95
+097    Total input tax non-deductible                     285.95
+102    Total input tax deductible (093-097)              1219.05
 
 SOLDE
-103    Total TVA en aval                                 6586.00
-104    Total TVA en amont deductible                     1219.05
-105    Solde a payer / a restituer                       5366.95
+076    Total tax due (046+056+407+410+768+227)           6586.00
+103    Total tax due (carried forward from II.H)         6586.00
+104    Total input tax deductible (from III.C)           1219.05
+105    Exceeding amount (103-104)                        5366.95
 
 ------------------------------------------------------------------------------
 COMPOSITION DE LA TAXE
@@ -78,16 +84,6 @@ DROIT A DEDUCTION (prorata general, art. 50)
   TVA en amont totale     : 1505.00
   TVA deductible          : 1219.05
   TVA non deductible      : 285.95
-
-******************************************************************************
-MONTANTS SANS CASE MAPPEE - A AFFECTER MANUELLEMENT
-******************************************************************************
-  total_exonerations                             base   22000.00   taxe          -
-  ca_taxable                                     base   31000.00   taxe          -
-  ventes_lu_total                                base   31000.00   taxe    5090.00
-  services_recus_ue_total                        base    6000.00   taxe    1020.00
-  tva_amont_non_deductible                       base          -   taxe     285.95
-  total_taxe_due                                 base          -   taxe    6586.00
 
 ==============================================================================
 Fin du rapport.

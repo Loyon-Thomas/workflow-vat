@@ -228,13 +228,24 @@ en silence : elle est tracée dans l'onglet `Exceptions`.**
    ponctuels. Le livrable complet étant soumis au client pour accord avant
    dépôt, cet accord vaut confirmation de complétude du lot retenu. La
    réconciliation annuelle (`reconciliation.py`) est le filet de rattrapage.
-2. **Mapping eCDF : deux profils, deux statuts.** `config/mapping_ecdf.yaml`
-   contient un profil par formulaire, choisi selon le type de période.
-   - `TVA_DECA_2025` (déclaration annuelle) — **statut VALIDE**, relevé
-     directement sur le formulaire officiel version 2025M1V002.
-   - `TVA_DECM_2020` (mensuelle / trimestrielle) — **statut A_VALIDER** :
-     cases alignées sur celles du DECA, les identifiants eCDF étant en principe
-     partagés entre formulaires, mais ce point n'est pas vérifié.
+2. **Mapping eCDF : deux profils, tous deux vérifiés.**
+   `config/mapping_ecdf.yaml` contient un profil par formulaire, choisi selon le
+   type de période.
+   - `TVA_DECA_2025` (annuelle) — **VALIDE**, relevé sur le formulaire officiel
+     2025M1V002.
+   - `TVA_DECM_2025` (mensuelle et trimestrielle) — **VALIDE**, relevé sur les
+     formulaires officiels 2025 « Return for October 2025 » et « Return for the
+     4th quarter of calendar year 2025 ». Numéros identiques sur les deux : un
+     seul profil couvre M et Q.
+
+   **Les identifiants eCDF ne sont pas intégralement partagés entre
+   formulaires** : les livraisons intracommunautaires de biens sont en case
+   **457** au DECM et **013** au DECA. La ventilation de la TVA en amont diffère
+   aussi — par origine au DECM (458 / 459 / 460 / 461), par nature de dépense au
+   DECA (stock 077 / immobilisations 081 / frais généraux 085). Le moteur ne
+   pouvant pas déduire la nature d'une dépense depuis une facture, ces quatre
+   postes ressortent explicitement à ventiler à la main sur l'annuelle.
+
    Tout montant sans case mappée est listé sous « MONTANTS SANS CASE MAPPEE » —
    jamais absorbé.
 3. **Aucune qualification TVA.** Le moteur ne tranche ni le lieu de prestation,

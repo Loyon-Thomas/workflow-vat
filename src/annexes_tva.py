@@ -555,7 +555,23 @@ def agreger(valides, prorata_pct, origine_prorata, profil, ca_total, ca_droit, p
             push("autoliquidation", cle, b, t)
 
     # --- III / IV -----------------------------------------------------
+    # --- III. ventilation de la TVA en amont --------------------------
+    def tva_de(regs):
+        return r2(sum(v["tva"] for v in achats if v["regime"] in regs))
     push("amont", "tva_amont_totale", None, tva_amont)
+    # Ventilation par origine : presente au DECM (458/459/460/461). Le DECA
+    # ventile par NATURE de depense (stock 077 / immobilisations 081 / frais
+    # generaux 085), que le moteur ne peut pas deduire d'une facture : ces
+    # postes y ressortent explicitement comme a ventiler a la main.
+    push("amont", "tva_amont_facturee", None, tva_de(("achat_lu", "exonere_art44")),
+         "TVA facturee par des assujettis - a ventiler stock 077 / immo 081 / frais 085")
+    push("amont", "tva_amont_acq_intracom", None, tva_de(("acq_intracom",)),
+         "TVA sur acquisitions intracom - a ventiler stock 078 / immo 082 / frais 086")
+    push("amont", "tva_amont_importations", None, tva_de(("import",)),
+         "TVA sur importations - a ventiler stock 079 / immo 083 / frais 087")
+    push("amont", "tva_amont_reverse_charge", None,
+         tva_de(("service_autoliq", "service_autoliq_tiers")),
+         "TVA autoliquidee - a ventiler stock 404 / immo 405 / frais 406")
     push("amont", "prorata_non_recuperable", None, tva_nd)
     push("amont", "tva_amont_non_deductible", None, tva_nd)
     push("amont", "tva_amont_deductible", None, tva_deduc)

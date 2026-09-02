@@ -5,7 +5,7 @@
 Societe    : TESTCO S.a r.l.
 Matricule  : 2020 2400 000
 Periode    : Annual 2025
-Genere le  : 02/09/2026 12:14
+Genere le  : 02/09/2026 12:28
 
 Formulaire      : Declaration annuelle - TVA_DECA (TVA_DECA_2025)
 Version source  : 2025M1V002
@@ -95,6 +95,14 @@ DROIT A DEDUCTION (prorata general, art. 50)
   TVA en amont totale     : 6931.40
   TVA deductible          : 5614.43
   TVA non deductible      : 1316.97
+
+******************************************************************************
+MONTANTS SANS CASE MAPPEE - A AFFECTER MANUELLEMENT
+******************************************************************************
+  TVA facturee par des assujettis - a ventiler stock 077 / immo 081 / frais 085 base          -   taxe    2868.40
+  TVA sur acquisitions intracom - a ventiler stock 078 / immo 082 / frais 086 base          -   taxe    1241.00
+  TVA sur importations - a ventiler stock 079 / immo 083 / frais 087 base          -   taxe     884.00
+  TVA autoliquidee - a ventiler stock 404 / immo 405 / frais 406 base          -   taxe    1938.00
 
 ==============================================================================
 Fin du rapport.
