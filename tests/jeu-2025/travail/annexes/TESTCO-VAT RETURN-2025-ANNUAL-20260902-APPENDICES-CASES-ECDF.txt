@@ -5,7 +5,7 @@
 Societe    : TESTCO S.a r.l.
 Matricule  : 2020 2400 000
 Periode    : Annual 2025
-Genere le  : 02/09/2026 12:28
+Genere le  : 02/09/2026 19:48
 
 Formulaire      : Declaration annuelle - TVA_DECA (TVA_DECA_2025)
 Version source  : 2025M1V002
@@ -90,7 +90,7 @@ DROIT A DEDUCTION (prorata general, art. 50)
   CA de l'annee - total        :  311000.00
   CA ouvrant droit a deduction :  251000.00
   Prorata brut                 : 0.807074
-  Prorata applique             : 81 %   (calcule sur le CA 2025)
+  Prorata applique             : 81 %   (impose en ligne de commande (2024))
 
   TVA en amont totale     : 6931.40
   TVA deductible          : 5614.43

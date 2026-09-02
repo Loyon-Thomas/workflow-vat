@@ -38,14 +38,14 @@ _TEMPLATE-ANNEXES-TVA/
 ```bash
 # 1. Inventaire : dédoublonnage SHA-256, classement natif/scan, extraction texte
 #    --factures pointe le dossier client connecté via Cowork (parcours récursif)
-python3 src/annexes_tva.py inventaire --dossier dossiers/GACELS \
-        --factures ~/Documents/Clients/GACELS/Factures
+python3 src/annexes_tva.py inventaire --dossier dossiers/EXEMPLE-CLIENT \
+        --factures ~/Documents/Clients/EXEMPLE-CLIENT/Factures
 
 # 2. Lecture des factures → un <sha12>.json par document dans extraction/
 #    natifs : texte disponible dans extraction/textes/ ; scans : vision
 
 # 3. Contrôles + génération
-python3 src/annexes_tva.py annexes --dossier dossiers/GACELS
+python3 src/annexes_tva.py annexes --dossier dossiers/EXEMPLE-CLIENT
 ```
 
 L'étape 3 est **interactive**. Le script demande :
@@ -180,9 +180,9 @@ débits.
 ```json
 {
   "sens": "achat",
-  "emetteur": "Orange Communications Luxembourg S.A.", "emetteur_tva": "LU19749504",
-  "destinataire": "GACE Luxembourg S.a r.l.", "destinataire_tva": null,
-  "tiers": "Orange", "tva_tiers": "LU19749504", "pays": "LU",
+  "emetteur": "Telecom Exemple S.A.", "emetteur_tva": "LU00000004",
+  "destinataire": "Exemple Client S.a r.l.", "destinataire_tva": null,
+  "tiers": "Telecom Exemple", "tva_tiers": "LU00000004", "pays": "LU",
   "num_facture": "INV/1272637/2025", "date": "2025-08-13",
   "devise": "EUR", "taux_change": 1.0, "total_ttc": 163.80,
   "regime": "achat_lu",
@@ -256,7 +256,7 @@ en silence : elle est tracée dans l'onglet `Exceptions`.**
 
 ## Test de non-régression
 
-Le jeu `dossiers/GACELS` (5 factures d'août 2025, 2 natives + 3 scans) sert de
+Le jeu `dossiers/EXEMPLE-CLIENT` (5 factures d'août 2025, 2 natives + 3 scans) sert de
 cas de référence. Injection des quatre erreurs réellement constatées dans
 l'annexe 2025 → les quatre sont rejetées : n° client saisi comme n° de facture
 (C5), n° de facture à 11 chiffres (C5), TVA incohérente (C1 + C2), facture hors
@@ -272,7 +272,7 @@ de l'exercice. Le module vérifie que ce cumul tient, puis le confronte à la
 comptabilité une fois celle-ci rattrapée.
 
 ```bash
-python3 src/reconciliation.py --dossier dossiers/GACELS --annee 2025 \
+python3 src/reconciliation.py --dossier dossiers/EXEMPLE-CLIENT --annee 2025 \
         --gl ~/exports/GL-2025.xlsx --feuille GL
 ```
 

@@ -34,7 +34,7 @@
 
 ### Ce qui est éprouvé
 
-31 factures fictives couvrant toutes les catégories, sept défauts injectés, sept détectés. Douze factures pour la réconciliation, sept défauts, tous détectés. Sur les cinq vraies factures GACE d'août 2025 : bases et taux extraits exacts à 100 %, trois erreurs de métadonnées détectées dans l'annexe existante.
+31 factures fictives couvrant toutes les catégories, sept défauts injectés, sept détectés. Douze factures pour la réconciliation, sept défauts, tous détectés. Sur les cinq vraies factures le client de reference d'août 2025 : bases et taux extraits exacts à 100 %, trois erreurs de métadonnées détectées dans l'annexe existante.
 
 ---
 
@@ -56,7 +56,7 @@
 
 ### [Fait] Ce qui reste à paramétrer
 
-`numero_tva` n'est renseigné dans aucun `societe.yaml` — la détection du sens s'appuie aujourd'hui sur les alias de dénomination, moins sûrs. `config/mapping_gl.yaml` ne contient qu'un profil d'export comptable. Le référentiel tiers n'existe que pour GACELS.
+`numero_tva` n'est renseigné dans aucun `societe.yaml` — la détection du sens s'appuie aujourd'hui sur les alias de dénomination, moins sûrs. `config/mapping_gl.yaml` ne contient qu'un profil d'export comptable. Le référentiel tiers n'existe que pour EXEMPLE-CLIENT.
 
 ### [Avis] Développements par ordre d'utilité
 
@@ -89,7 +89,7 @@ Le principe de conception tient toujours : les calculs restent du code Python d�
 
 **Corpus de régression d'abord.** Sans jeu étiqueté rejoué à chaque exécution, un changement de modèle peut dégrader l'extraction sans que rien ne le signale. C'est le prérequis, pas une amélioration ultérieure.
 
-**Économie à mesurer.** Le coût par facture dépend du nombre de documents et de la proportion de scans. À volume de portefeuille, les fournisseurs récurrents à mise en page stable — Orange, Post, FSA, Prime Alliance — se traitent par gabarit déterministe pour une fraction du coût. Réserver la lecture par modèle à la queue de distribution.
+**Économie à mesurer.** Le coût par facture dépend du nombre de documents et de la proportion de scans. À volume de portefeuille, les fournisseurs récurrents à mise en page stable — télécoms, bailleurs, prestataires administratifs — se traitent par gabarit déterministe pour une fraction du coût. Réserver la lecture par modèle à la queue de distribution.
 
 **Rien de non réversible.** Aucune écriture dans le dossier client, aucun dépôt automatique, aucune suppression. L'accord du client avant dépôt reste le point de contrôle humain.
 

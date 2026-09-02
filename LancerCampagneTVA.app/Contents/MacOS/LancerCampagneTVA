@@ -1,0 +1,29 @@
+#!/bin/bash
+# Localise puis lance lancer_campagne.py.
+#
+# Ce bundle doit vivre hors du dossier pCloud pour pouvoir etre execute :
+# pCloud (pcloudfs) ne conserve pas le bit executable, donc un .app qui
+# resterait dedans ne se lancerait jamais au double-clic. Il ne peut donc
+# pas deriver le chemin du depot de sa propre position -- celui-ci est mis
+# en cache dans ~/.campagne_tva_depot des le premier lancement reussi.
+CACHE="$HOME/.campagne_tva_depot"
+CANDIDAT_PAR_DEFAUT="$HOME/pCloud Drive/pCloud Backup/MacBookAirdeThomas/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
+
+DIR=""
+if [ -f "$CACHE" ]; then
+    DIR="$(cat "$CACHE")"
+fi
+if [ ! -f "$DIR/lancer_campagne.py" ] && [ -f "$CANDIDAT_PAR_DEFAUT/lancer_campagne.py" ]; then
+    DIR="$CANDIDAT_PAR_DEFAUT"
+fi
+if [ ! -f "$DIR/lancer_campagne.py" ]; then
+    DIR="$(osascript -e 'POSIX path of (choose folder with prompt "Localiser le dossier _TEMPLATE-ANNEXES-TVA")' 2>/dev/null)"
+    DIR="${DIR%/}"
+fi
+if [ ! -f "$DIR/lancer_campagne.py" ]; then
+    osascript -e 'display alert "Dossier introuvable" message "lancer_campagne.py introuvable dans le dossier choisi." as critical'
+    exit 1
+fi
+printf '%s' "$DIR" > "$CACHE"
+cd "$DIR" || exit 1
+exec /usr/bin/env python3 "$DIR/lancer_campagne.py"

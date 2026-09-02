@@ -36,12 +36,12 @@ Developer settings → Personal access tokens), pas le mot de passe du compte.
 
 ## Confidentialité — vérifié
 
-Le `.gitignore` exclut `dossiers/` (dont GACELS), tous les PDF hors jeux
+Le `.gitignore` exclut `dossiers/` — tous les dossiers de travail clients —, tous les PDF hors jeux
 d'essai fictifs, les dossiers `extraction/`, les classeurs produits et les
 instantanés `-DECLARE.json`.
 
 ```bash
-git ls-files | grep -i gace       # ne renvoie rien
+git ls-files | grep -iE "nom-de-ton-client"   # doit ne rien renvoyer
 ```
 
 **Dépôt privé** : le mapping des cases eCDF et les règles de contrôle décrivent

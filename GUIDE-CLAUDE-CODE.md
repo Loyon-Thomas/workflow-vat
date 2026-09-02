@@ -94,15 +94,15 @@ Il le crée. Tu le relis. C'est ton garde-fou permanent.
 
 Une fois le dossier client connecté, une demande type :
 
-> Traite le dossier client GACELS pour le troisième trimestre 2025. Fais l'inventaire, lis chaque facture, écris les JSON d'extraction, puis lance la génération des annexes. Montre-moi le rapport d'exceptions avant que je valide.
+> Traite le dossier client EXEMPLE-CLIENT pour le troisième trimestre 2025. Fais l'inventaire, lis chaque facture, écris les JSON d'extraction, puis lance la génération des annexes. Montre-moi le rapport d'exceptions avant que je valide.
 
 Il enchaîne les étapes et s'arrête sur les exceptions. Tu tranches, il reprend.
 
 Autres demandes utiles :
 
-> Réconcilie l'exercice 2025 de GACELS avec l'export comptable que je viens de déposer dans le dossier.
+> Réconcilie l'exercice 2025 de EXEMPLE-CLIENT avec l'export comptable que je viens de déposer dans le dossier.
 
-> Ajoute Post Telecom au référentiel de GACELS : fournisseur mensuel, libellé standard "Phone costs", taux 17 %.
+> Ajoute Telecom Exemple au référentiel de EXEMPLE-CLIENT : fournisseur mensuel, libellé standard "Phone costs", taux 17 %.
 
 > Le rapport d'exceptions signale une divergence de sens sur la facture X. Explique-moi pourquoi et propose une correction.
 

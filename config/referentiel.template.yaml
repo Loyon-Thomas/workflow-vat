@@ -2,22 +2,27 @@
 # REFERENTIEL TIERS - copier sous dossiers/<CODE>/referentiel.yaml
 # Neutralise les erreurs de metadonnees (n de facture, libelle).
 # Une entree par fournisseur / client recurrent.
+# Les entrees ci-dessous sont FICTIVES : elles montrent les formes de
+# parametrage, pas des tiers reels.
 # =====================================================================
 fournisseurs:
-  - nom: "SK Informatik S.a r.l."
-    alias: ["SK informatik", "SK Informatik Sarl"]
-    tva: "LU30508683"
-    format_num_facture: '^R\d{6}/\d{4}$'   # rejette le n de CLIENT 10158
+
+  # Cas simple : un seul libelle, un seul taux, format de numero strict.
+  - nom: "Informatique Exemple S.a r.l."
+    alias: ["Informatique Exemple", "Info Exemple Sarl"]
+    tva: "LU00000001"
+    format_num_facture: '^R\d{6}/\d{4}$'   # rejette un numero de CLIENT
     libelle_standard: "IT equipment"
     taux_attendus: [0.17]
     periodicite: ponctuel                  # mensuel | trimestriel | ponctuel
     bloc: achats_lu
 
-  - nom: "Prime Alliance Consulting Group S.a r.l."
-    alias: ["Prime Alliance Consulting Grou", "Prime Alliance"]
-    tva: "LU32892974"
+  # Cas a deux natures : le libelle depend du contenu de la facture.
+  - nom: "Immobilier Exemple S.a r.l."
+    alias: ["Immobilier Exemple", "Immo Exemple"]
+    tva: "LU00000002"
     format_num_facture: '^\d{6}$'
-    libelle_standard: null                 # 2 natures -> voir regles_libelle
+    libelle_standard: null
     regles_libelle:
       - si_contient: ["Rent Office", "Loyer"]
         libelle: "Rental Services"
@@ -29,32 +34,43 @@ fournisseurs:
     periodicite: mensuel
     bloc: achats_lu
 
-  - nom: "Faiencerie Services Administratifs S.a r.l."
-    alias: ["FSA"]
-    tva: "LU20371886"
-    format_num_facture: '^\d{10}$'          # rejette 20250800458 (11 car.)
+  # Cas avec signalement de qualification a trancher par le preparateur.
+  - nom: "Services Administratifs Exemple S.a r.l."
+    alias: ["Services Exemple", "SAE"]
+    tva: "LU00000003"
+    format_num_facture: '^\d{10}$'          # rejette un numero a 11 chiffres
     libelle_standard: null
     regles_libelle:
       - si_contient: ["Parking"]
         libelle: "Parking services"
         taux_attendus: [0.17]
-      - si_contient: ["cheques-repas", "cheque-repas", "Sodexo"]
+      - si_contient: ["cheques-repas", "cheque-repas", "titres-restaurant"]
         libelle: "Meal vouchers"
         taux_attendus: [0.0, 0.17]
         # [AVIS] la valeur faciale des cheques-repas n'est pas une
-        # prestation de services taxable; seule la commission l'est.
-        # Qualification a trancher par le preparateur.
+        # prestation de services taxable ; seule la commission l'est.
         signaler: "Qualification cheques-repas a confirmer"
     periodicite: mensuel
     bloc: achats_lu
 
-  - nom: "Orange Communications Luxembourg S.A."
-    alias: ["Orange"]
-    tva: "LU19749504"
+  # Cas a deux taux sur une meme facture.
+  - nom: "Telecom Exemple S.A."
+    alias: ["Telecom Exemple"]
+    tva: "LU00000004"
     format_num_facture: '^INV/\d{7}/\d{4}$'
     libelle_standard: "Phone costs"
     taux_attendus: [0.0, 0.17]
     periodicite: mensuel
+    bloc: achats_lu
+
+  # Fournisseur trimestriel : alimente le controle d'exhaustivite C8.
+  - nom: "Assurances Exemple S.A."
+    alias: ["Assurances Exemple"]
+    tva: null
+    format_num_facture: null
+    libelle_standard: "Insurance"
+    taux_attendus: [0.0]
+    periodicite: trimestriel
     bloc: achats_lu
 
 clients: []

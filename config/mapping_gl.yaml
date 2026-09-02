@@ -5,7 +5,8 @@
 # =====================================================================
 profils:
 
-  # Profil constate sur l'export du dossier GACE (17 colonnes)
+  # Profil constate sur un export comptable a 17 colonnes
+  # (en-tetes francais, un logiciel repandu au Luxembourg)
   standard_fr:
     compte: "Compte general"
     compte_alias: ["Compte général", "Compte", "Account"]
