@@ -4,6 +4,7 @@
 dossiers/
 *.pdf
 !tests/**/*.pdf
+!formulaires-officiels/*.pdf
 
 # Sorties de travail
 **/extraction/
