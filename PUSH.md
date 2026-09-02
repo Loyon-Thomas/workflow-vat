@@ -14,7 +14,7 @@ GitHub n'accepte pas d'espace dans un nom de dépôt : `workflow VAT` devient
 
 ```bash
 brew install gh                    # gh n'est pas installé sur cette machine
-cd "~/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
+cd "$HOME/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
 gh auth login
 gh repo create workflow-VAT --private --source=. --remote=origin --push
 ```
@@ -25,7 +25,7 @@ Créer le dépôt **privé** `workflow-VAT` sur github.com (sans README ni
 .gitignore initial), puis :
 
 ```bash
-cd "~/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
+cd "$HOME/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
 git remote add origin https://github.com/Loyon-Thomas/workflow-VAT.git
 git branch -M main
 git push -u origin main
