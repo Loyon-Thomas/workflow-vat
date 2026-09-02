@@ -1,33 +1,26 @@
 # =====================================================================
-# PARAMETRES SOCIETE - copier ce fichier sous dossiers/<CODE>/societe.yaml
+# PARAMETRES SOCIETE - copier sous dossiers/<CODE>/societe.yaml
 # Tout ce qui est propre a une societe vit ici. Le moteur ne change pas.
 # =====================================================================
-code: GACELS
-denomination: "GACE Luxembourg S.a r.l."
-numero_tva: "LU..."               # a renseigner
-matricule: "2016 2466 616"
+code: EXEMPLE
+denomination: "Exemple S.a r.l."
+numero_tva: "LU00000000"          # a renseigner : fiabilise la detection du sens
+matricule: "0000 0000 000"
 # Alias servant a reconnaitre la societe comme emetteur ou destinataire d'une
 # facture, lorsque le dossier source ne separe pas achats et ventes.
-alias_societe:
-  - "GACE Luxembourg sarl"
-  - "GACE Luxembourg S a r l"
-  - "GACE Luxembourg"
+alias_societe: ["Exemple Sarl", "Exemple"]
 
 # --- Sources et depot -------------------------------------------------
 # source_factures : dossier client connecte via Cowork, parcouru
-# recursivement. Les sous-dossiers commencant par '.' ou '_' sont ignores,
-# ainsi que tout fichier non-PDF.
-source_factures: null            # ex: "~/Documents/Clients/GACELS/Factures"
+# recursivement. Sous-dossiers commencant par '.' ou '_' ignores, non-PDF
+# ignores. Les originaux ne sont ni modifies ni deplaces.
+source_factures: null            # ex: "~/Documents/Clients/EXEMPLE/Factures"
 dossier_sortie: null             # null -> <dossier>/annexes (espace de travail).
                                  # Rien n'est jamais ecrit dans le dossier client.
 
-# SENS achat / vente - trois sources independantes, croisees :
-#   1. chemin      : segments du dossier (arborescence Achats/ Ventes/ separee)
-#   2. identite    : la societe est-elle emetteur ou destinataire de la facture
-#                    (fonctionne dans un DOSSIER UNIQUE melangeant les deux)
-#   3. extraction  : sens porte par le JSON de lecture
-# Toute divergence entre deux sources, comme l'absence des trois, est
-# bloquante (C11). La source 2 exige numero_tva ou alias_societe renseignes.
+# --- Sens achat / vente ------------------------------------------------
+# Trois sources croisees : chemin, identite des parties, sens de l'extraction.
+# Une source suffit ; toute divergence est bloquante (C11).
 detection_sens:
   achats: ["achat", "achats", "purchase", "purchases", "fournisseur",
            "fournisseurs", "supplier", "suppliers", "AP"]
@@ -35,11 +28,14 @@ detection_sens:
            "customer", "customers", "AR"]
   defaut: null                   # null -> sens indetermine = exception C11
 
-# --- Regime -----------------------------------------------------------
-periodicite: trimestrielle          # mensuelle | trimestrielle
-# Exigibilite : NON PARAMETRABLE. Regime normal luxembourgeois, rattachement
-# par date d'emission de la facture (loi TVA 12.02.1979 mod., art. 24 par. 1er).
-# --- Droit a deduction ------------------------------------------------
+# --- Regime -------------------------------------------------------------
+periodicite: trimestrielle       # mensuelle | trimestrielle
+profil_gl: standard_fr           # profil de config/mapping_gl.yaml
+# Exigibilite : NON PARAMETRABLE. Regime des debits, rattachement par date
+# d'emission de la facture, identique en amont et en aval
+# (loi TVA 12.02.1979 mod., art. 24 par. 1er, par derogation a l'art. 21).
+
+# --- Droit a deduction --------------------------------------------------
 # Le prorata general (art. 50) est CALCULE sur le chiffre d'affaires de
 # l'annee civile : CA ouvrant droit / CA total, arrondi a l'unite superieure.
 # Le moteur agrege les ventes de la periode en cours et celles des autres
@@ -47,5 +43,28 @@ periodicite: trimestrielle          # mensuelle | trimestrielle
 # peut etre remplacee ; l'origine est tracee sur le livrable.
 # Sur une periode infra-annuelle, le prorata est PROVISOIRE (CA partiel).
 droit_deduction:
-  prorata_pourcent: null      # repli si aucun CA n'est disponible
-  exercice_reference: null    # origine du repli, pour la trace
+  prorata_pourcent: null         # repli si aucune vente n'est disponible
+  exercice_reference: null       # origine du repli, pour la trace
+
+# --- Devises ------------------------------------------------------------
+devise_comptable: EUR
+taux_change:
+  source: BCE                    # BCE | administration | facture
+  regle: date_facture
+
+# --- Controles ----------------------------------------------------------
+tolerance_arrondi: 0.02          # ecart max entre base x taux et TVA facturee
+taux_admis: [0.0, 0.03, 0.08, 0.14, 0.17]
+# La completude est confirmee par l'accord du client sur le livrable complet,
+# avant depot. Aucun controle bloquant en amont.
+
+# --- Sortie -------------------------------------------------------------
+sortie:
+  nom_fichier: "{code}-VAT RETURN-{annee}-{periode}-{date_prod}-APPENDICES.xlsx"
+  onglets:
+    - "Detail CA"
+    - "Detail TVA Lux"
+    - "Detail TVA debiteur"
+    - "VAT recovery right"
+  # Exceptions et correspondance eCDF sont produites en .txt a cote du
+  # classeur, pas en onglets.

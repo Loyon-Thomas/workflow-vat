@@ -5,7 +5,7 @@
 Societe    : TESTCO S.a r.l.
 Matricule  : 2020 2400 000
 Periode    : Annual 2025
-Genere le  : 02/09/2026 12:09
+Genere le  : 02/09/2026 12:14
 
 Formulaire      : Declaration annuelle - TVA_DECA (TVA_DECA_2025)
 Version source  : 2025M1V002

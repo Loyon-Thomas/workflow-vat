@@ -89,9 +89,17 @@ def bornes_periode(periode):
 # Saisie interactive
 # ----------------------------------------------------------------------
 def _lire(invite, defaut=None, valide=None):
+    essais = 0
     while True:
         suf = " [%s]" % defaut if defaut is not None else ""
-        rep = input("  %s%s : " % (invite, suf)).strip()
+        try:
+            rep = input("  %s%s : " % (invite, suf)).strip()
+        except EOFError:
+            sys.exit("\nSaisie interrompue : '%s' est requis. En mode non "
+                     "interactif, passer --periode / --prorata / --exercice." % invite)
+        essais += 1
+        if essais > 5:
+            sys.exit("\nTrop de saisies invalides pour '%s'." % invite)
         if not rep and defaut is not None:
             rep = str(defaut)
         if valide is None or valide(rep):
@@ -160,7 +168,9 @@ def demander_prorata(conf, ca_total, ca_droit, annee, autres_periodes):
     if autres_periodes:
         print("  (dont %d autre(s) periode(s) declaree(s) de l'exercice)" % autres_periodes)
     if brut is None:
-        print("  Aucun chiffre d'affaires sur l'annee : le prorata ne peut pas etre calcule.")
+        print("  Aucune vente sur l'exercice : le prorata ne peut pas etre calcule.")
+        print("  Saisir le prorata a appliquer (celui de la derniere annuelle deposee),")
+        print("  puis son origine, qui sera tracee sur le livrable.")
         dd = conf.get("droit_deduction") or {}
         pct = _lire("Prorata a appliquer en %", dd.get("prorata_pourcent"),
                     lambda x: re.fullmatch(r"\d{1,3}([.,]\d+)?", x)
@@ -885,7 +895,9 @@ def etape_annexes(dossier, racine, periode=None, prorata=None, exercice=None,
         origine += " - PROVISOIRE : CA partiel de l'exercice, a regulariser sur l'annuelle"
     print("  -> prorata retenu : %g %%  (%s)\n" % (prorata, origine))
     agr = agreger(valides, prorata, origine, profil, ca_total, ca_droit, brut)
-    base_nom = conf["sortie"]["nom_fichier"].format(
+    modele_nom = (conf.get("sortie") or {}).get(
+        "nom_fichier", "{code}-VAT RETURN-{annee}-{periode}-{date_prod}-APPENDICES.xlsx")
+    base_nom = modele_nom.format(
         code=conf["code"], annee=periode[:4], periode=periode[5:],
         date_prod=dt.date.today().strftime("%Y%m%d")).replace(".xlsx", "")
     out = out_prov

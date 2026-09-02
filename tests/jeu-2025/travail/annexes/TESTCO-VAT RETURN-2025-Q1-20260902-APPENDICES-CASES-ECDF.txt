@@ -5,7 +5,7 @@
 Societe    : TESTCO S.a r.l.
 Matricule  : 2020 2400 000
 Periode    : Quarter 1 2025
-Genere le  : 02/09/2026 12:09
+Genere le  : 02/09/2026 12:14
 
 Formulaire      : Declaration mensuelle / trimestrielle - TVA_DECM (TVA_DECM_2020)
 Version source  : 2020M1V002
