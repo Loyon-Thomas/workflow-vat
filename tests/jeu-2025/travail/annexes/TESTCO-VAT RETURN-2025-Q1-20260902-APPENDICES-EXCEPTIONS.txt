@@ -1,0 +1,79 @@
+==============================================================================
+                                  EXCEPTIONS                                  
+==============================================================================
+
+Societe    : TESTCO S.a r.l.
+Matricule  : 2020 2400 000
+Periode    : Quarter 1 2025
+Genere le  : 02/09/2026 12:09
+
+Bloquantes : 0   |   A revoir : 0   |   Hors periode : 22
+
+Aucune ligne bloquante n'est integree aux annexes.
+
+Ce livrable - annexes, correspondance eCDF et present rapport - est soumis
+au client pour accord avant depot. L'accord du client sur le lot de factures
+retenu vaut confirmation de completude.
+------------------------------------------------------------------------------
+
+BLOQUANTES (0)
+------------------------------------------------------------------------------
+  neant
+
+A REVOIR (0)
+------------------------------------------------------------------------------
+  neant
+
+HORS PERIODE - REGISTRE DE REPRISE (22)
+------------------------------------------------------------------------------
+  2025-04-08  Mobilier Belge SA            A2508                 periode ulterieure
+        Achats/2025-Q2/2025-04-08 A2508.pdf
+  2025-04-15  Client US Inc                V2504                 periode ulterieure
+        Ventes/2025-Q2/2025-04-15 V2504.pdf
+  2025-04-22  Cloud Corp                   A2509                 periode ulterieure
+        Achats/2025-Q2/2025-04-22 A2509.pdf
+  2025-05-14  Bureau Lux SA                A2510                 periode ulterieure
+        Achats/2025-Q2/2025-05-14 A2510.pdf
+  2025-05-20  Client Lux Three SA          V2505                 periode ulterieure
+        Ventes/2025-Q2/2025-05-20 V2505.pdf
+  2025-05-30  Import CN Ltd                A2511                 periode ulterieure
+        Achats/2025-Q2/2025-05-30 A2511.pdf
+  2025-06-11  Telecom Lux SA               A2512                 periode ulterieure
+        Achats/2025-Q2/2025-06-11 A2512 (rescan).pdf
+  2025-06-11  Telecom Lux SA               A2512                 periode ulterieure
+        Achats/2025-Q2/2025-06-11 A2512.pdf
+  2025-06-27  Client UK Ltd                V2506                 periode ulterieure
+        Ventes/2025-Q2/2025-06-27 V2506.pdf
+  2025-06-30  Groupe Lux entities          V2507                 periode ulterieure
+        Ventes/2025-Q2/2025-06-30 V2507.pdf
+  2025-07-09  Conseil FR SARL              A2513                 periode ulterieure
+        Achats/2025-Q3/2025-07-09 A2513.pdf
+  2025-07-18  Client Lux One SA            V2508                 periode ulterieure
+        Ventes/2025-Q3/2025-07-18 V2508.pdf
+  2025-08-19  Librairie Lux                A2514                 periode ulterieure
+        Achats/2025-Q3/2025-08-19 A2514.pdf
+  2025-08-29  Client FR SAS                V2509                 periode ulterieure
+        Ventes/2025-Q3/2025-08-29 V2509.pdf
+  2025-09-02  Materiel NL BV               A2515                 periode ulterieure
+        Achats/2025-Q3/2025-09-02 A2515.pdf
+  2025-09-30  Client Lux Four SA           V2510                 periode ulterieure
+        Ventes/2025-Q3/2025-09-30 V2510.pdf
+  2025-10-15  Bureau Lux SA                A2516                 periode ulterieure
+        Achats/2025-Q4/2025-10-15 A2516.pdf
+  2025-10-24  Client CH SA                 V2511                 periode ulterieure
+        Ventes/2025-Q4/2025-10-24 V2511.pdf
+  2025-11-20  Restaurant Lux               A2517                 periode ulterieure
+        Achats/2025-Q4/2025-11-20 A2517.pdf
+  2025-11-28  Client Lux One SA            V2512                 periode ulterieure
+        Ventes/2025-Q4/2025-11-28 V2512.pdf
+  2025-12-10  Audit Lux SA                 A2518                 periode ulterieure
+        Achats/2025-Q4/2025-12-10 A2518.pdf
+  2025-12-19  Client JP KK                 V2513                 periode ulterieure
+        Ventes/2025-Q4/2025-12-19 V2513.pdf
+
+  Verifier pour chacune si elle a deja ete declaree sur sa periode
+  d'emission. Si non : rectificative ou regularisation.
+
+
+==============================================================================
+Fin du rapport.

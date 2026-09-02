@@ -1,0 +1,87 @@
+==============================================================================
+                                  EXCEPTIONS                                  
+==============================================================================
+
+Societe    : TESTCO S.a r.l.
+Matricule  : 2020 2400 000
+Periode    : Quarter 3 2025
+Genere le  : 02/09/2026 12:09
+
+Bloquantes : 0   |   A revoir : 0   |   Hors periode : 26
+
+Aucune ligne bloquante n'est integree aux annexes.
+
+Ce livrable - annexes, correspondance eCDF et present rapport - est soumis
+au client pour accord avant depot. L'accord du client sur le lot de factures
+retenu vaut confirmation de completude.
+------------------------------------------------------------------------------
+
+BLOQUANTES (0)
+------------------------------------------------------------------------------
+  neant
+
+A REVOIR (0)
+------------------------------------------------------------------------------
+  neant
+
+HORS PERIODE - REGISTRE DE REPRISE (26)
+------------------------------------------------------------------------------
+  2025-01-15  Bureau Lux SA                A2501                 periode anterieure
+        Achats/2025-Q1/2025-01-15 A2501 (copie).pdf
+  2025-01-20  Client Lux One SA            V2501                 periode anterieure
+        Ventes/2025-Q1/2025-01-20 V2501.pdf
+  2025-01-28  Resto Lux Sarl               A2502                 periode anterieure
+        Achats/2025-Q1/2025-01-28 A2502.pdf
+  2025-02-10  Immo Faiencerie SA           A2503                 periode anterieure
+        Achats/2025-Q1/2025-02-10 A2503.pdf
+  2025-02-14  Client Lux Two Sarl          V2502                 periode anterieure
+        Ventes/2025-Q1/2025-02-14 V2502.pdf
+  2025-02-20  Gaz et Elec Lux              A2504                 periode anterieure
+        Achats/2025-Q1/2025-02-20 A2504.pdf
+  2025-03-05  Hotel Kirchberg              A2505                 periode anterieure
+        Achats/2025-Q1/2025-03-05 A2505.pdf
+  2025-03-18  Software GmbH                A2506                 periode anterieure
+        Achats/2025-Q1/2025-03-18 A2506.pdf
+  2025-03-25  Assurances Lux SA            A2507                 periode anterieure
+        Achats/2025-Q1/2025-03-25 A2507.pdf
+  2025-03-28  Kunde DE GmbH                V2503                 periode anterieure
+        Ventes/2025-Q1/2025-03-28 V2503 (copie).pdf
+  2025-04-08  Mobilier Belge SA            A2508                 periode anterieure
+        Achats/2025-Q2/2025-04-08 A2508.pdf
+  2025-04-15  Client US Inc                V2504                 periode anterieure
+        Ventes/2025-Q2/2025-04-15 V2504.pdf
+  2025-04-22  Cloud Corp                   A2509                 periode anterieure
+        Achats/2025-Q2/2025-04-22 A2509.pdf
+  2025-05-14  Bureau Lux SA                A2510                 periode anterieure
+        Achats/2025-Q2/2025-05-14 A2510.pdf
+  2025-05-20  Client Lux Three SA          V2505                 periode anterieure
+        Ventes/2025-Q2/2025-05-20 V2505.pdf
+  2025-05-30  Import CN Ltd                A2511                 periode anterieure
+        Achats/2025-Q2/2025-05-30 A2511.pdf
+  2025-06-11  Telecom Lux SA               A2512                 periode anterieure
+        Achats/2025-Q2/2025-06-11 A2512 (rescan).pdf
+  2025-06-11  Telecom Lux SA               A2512                 periode anterieure
+        Achats/2025-Q2/2025-06-11 A2512.pdf
+  2025-06-27  Client UK Ltd                V2506                 periode anterieure
+        Ventes/2025-Q2/2025-06-27 V2506.pdf
+  2025-06-30  Groupe Lux entities          V2507                 periode anterieure
+        Ventes/2025-Q2/2025-06-30 V2507.pdf
+  2025-10-15  Bureau Lux SA                A2516                 periode ulterieure
+        Achats/2025-Q4/2025-10-15 A2516.pdf
+  2025-10-24  Client CH SA                 V2511                 periode ulterieure
+        Ventes/2025-Q4/2025-10-24 V2511.pdf
+  2025-11-20  Restaurant Lux               A2517                 periode ulterieure
+        Achats/2025-Q4/2025-11-20 A2517.pdf
+  2025-11-28  Client Lux One SA            V2512                 periode ulterieure
+        Ventes/2025-Q4/2025-11-28 V2512.pdf
+  2025-12-10  Audit Lux SA                 A2518                 periode ulterieure
+        Achats/2025-Q4/2025-12-10 A2518.pdf
+  2025-12-19  Client JP KK                 V2513                 periode ulterieure
+        Ventes/2025-Q4/2025-12-19 V2513.pdf
+
+  Verifier pour chacune si elle a deja ete declaree sur sa periode
+  d'emission. Si non : rectificative ou regularisation.
+
+
+==============================================================================
+Fin du rapport.

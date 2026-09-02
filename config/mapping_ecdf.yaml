@@ -1,0 +1,109 @@
+# =====================================================================
+# MAPPING ANNEXES -> CASES DE LA DECLARATION TVA (eCDF)
+# Un profil par formulaire. Le moteur choisit selon le type de periode.
+# =====================================================================
+formulaires:
+
+  # -------------------------------------------------------------------
+  TVA_DECA_2025:
+    libelle: "Declaration annuelle - TVA_DECA"
+    version_source: "2025M1V002"
+    periodes: ["ANNUAL"]
+    statut: VALIDE
+    source: >
+      Formulaire officiel eCDF TVA_DECA, version 2025M1V002, edition anglaise
+      "VALUE ADDED TAX - Return for year 2025", lu directement le 02/09/2026.
+      Numeros releves sur les sections I a IV du formulaire.
+
+    # --- I. Assiette du chiffre d'affaires --------------------------
+    turnover:
+      ca_global: {base: "012", libelle: "Total sales / receipts (overall turnover)"}
+      total_exonerations: {base: "021", libelle: "Exemptions and deductible amounts"}
+      ca_taxable: {base: "022", libelle: "Taxable turnover (012-021)"}
+      livraisons_intracom: {base: "013", libelle: "Intra-Community supply of goods"}
+      exportations: {base: "014", libelle: "Exports (Art. 43(1)(a) and (b))"}
+      exonerations_art43: {base: "015", libelle: "Other exemptions (Art. 43 and 60bis)"}
+      exonerations_art44: {base: "016", libelle: "Other exemptions (Art. 44 and 56quater)"}
+      services_ue_rendus: {base: "423", libelle: "Services to EU customers liable for VAT"}
+      operations_lieu_etranger: {base: "019", libelle: "Other supplies with place of supply abroad"}
+
+    # --- II. Taxe due (aval) ----------------------------------------
+    aval:
+      ventes_lu_total: {base: "037", taxe: "046", libelle: "Breakdown of taxable turnover - total"}
+      ventes_lu_17: {base: "701", taxe: "702", libelle: "Taxable turnover at 17%"}
+      ventes_lu_14: {base: "703", taxe: "704", libelle: "Taxable turnover at 14%"}
+      ventes_lu_08: {base: "705", taxe: "706", libelle: "Taxable turnover at 8%"}
+      ventes_lu_03: {base: "031", taxe: "040", libelle: "Taxable turnover at 3%"}
+
+    autoliquidation:
+      acq_intracom_total: {base: "051", taxe: "056", libelle: "Intra-Community acquisitions of goods - total"}
+      acq_intracom_17: {base: "711", taxe: "712", libelle: "Intra-Community acquisitions at 17%"}
+      importations_total: {base: "065", taxe: "407", libelle: "Importation of goods - total"}
+      importations_17: {base: "721", taxe: "722", libelle: "Importation of goods at 17%"}
+      services_recus_total: {base: "409", taxe: "410", libelle: "Services received - customer liable, total"}
+      services_recus_ue_total: {base: "436", taxe: "462", libelle: "Services received from EU suppliers"}
+      services_ue_17: {base: "741", taxe: "742", libelle: "Services received from EU suppliers at 17%"}
+      services_recus_tiers_total: {base: "463", taxe: "464", libelle: "Services received from non-EU suppliers"}
+      services_tiers_17: {base: "751", taxe: "752", libelle: "Services received from non-EU suppliers at 17%"}
+
+    # --- III. Taxe deductible (amont) -------------------------------
+    amont:
+      tva_amont_totale: {taxe: "093", libelle: "Total input tax"}
+      tva_amont_non_deductible: {taxe: "097", libelle: "Total input tax non-deductible"}
+      prorata_non_recuperable: {taxe: "095", libelle: "Non recoverable proportion (Art. 50)"}
+      tva_amont_deductible: {taxe: "102", libelle: "Total input tax deductible (093-097+101)"}
+
+    # --- IV. Solde ---------------------------------------------------
+    solde:
+      total_taxe_due: {taxe: "076", libelle: "Total tax due (046+056+407+410+768+227)"}
+      total_aval: {taxe: "103", libelle: "Total tax due (carried forward from II.H)"}
+      total_amont_deductible: {taxe: "104", libelle: "Total input tax deductible (from III.D)"}
+      excedent: {taxe: "105", libelle: "Exceeding amount (103-104)"}
+
+    # --- Regime d'exigibilite declare sur le formulaire --------------
+    exigibilite:
+      debits: {case: "204", libelle: "VAT accounting scheme: on sales"}
+      encaissements: {case: "205", libelle: "VAT accounting scheme: on payments received"}
+
+  # -------------------------------------------------------------------
+  TVA_DECM_2020:
+    libelle: "Declaration mensuelle / trimestrielle - TVA_DECM"
+    version_source: "2020M1V002"
+    periodes: ["M", "Q"]
+    statut: A_VALIDER
+    source: >
+      Formulaire eCDF TVA_DECM version 2020M1V002 (periode 2020M07). Les cases
+      communes ont ete alignees sur celles relevees sur le TVA_DECA 2025, les
+      identifiants eCDF etant en principe partages entre formulaires - MAIS CE
+      POINT N'EST PAS VERIFIE. La communication officielle du 02/09/2024 ajoute
+      par ailleurs au DECM les champs 481, 482, 491, 492, 493 et modifie les
+      regles du champ 021, non repris ici.
+
+    turnover:
+      ca_global: {base: "012", libelle: "Chiffre d'affaires global"}
+      livraisons_intracom: {base: "013", libelle: "Livraisons intracommunautaires de biens"}
+      exportations: {base: "014", libelle: "Exportations"}
+      exonerations_art44: {base: "016", libelle: "Autres exonerations (art. 44 et 56quater)"}
+      services_ue_rendus: {base: "423", libelle: "Services rendus a des preneurs UE redevables"}
+      operations_lieu_etranger: {base: "019", libelle: "Autres operations dont le lieu est a l'etranger"}
+    aval:
+      ventes_lu_17: {base: "701", taxe: "702", libelle: "Base / taxe au taux normal 17%"}
+      ventes_lu_14: {base: "703", taxe: "704", libelle: "Base / taxe au taux intermediaire 14%"}
+      ventes_lu_08: {base: "705", taxe: "706", libelle: "Base / taxe au taux reduit 8%"}
+      ventes_lu_03: {base: "031", taxe: "040", libelle: "Base / taxe au taux super-reduit 3%"}
+    autoliquidation:
+      acq_intracom_total: {base: "051", taxe: "056", libelle: "Total acquisitions intracommunautaires"}
+      acq_intracom_17: {base: "711", taxe: "712", libelle: "Acquisitions intracommunautaires 17%"}
+      importations_total: {base: "065", taxe: "407", libelle: "Total importations"}
+      importations_17: {base: "721", taxe: "722", libelle: "Importations 17%"}
+      services_recus_total: {base: "409", taxe: "410", libelle: "Total prestations de services recues"}
+      services_ue_17: {base: "741", taxe: "742", libelle: "Prestations UE 17%"}
+      services_tiers_17: {base: "751", taxe: "752", libelle: "Prestations pays tiers 17%"}
+    amont:
+      tva_amont_totale: {taxe: "093", libelle: "Total TVA en amont"}
+      prorata_non_recuperable: {taxe: "095", libelle: "Part non recuperable (art. 50)"}
+      tva_amont_deductible: {taxe: "102", libelle: "TVA en amont deductible"}
+    solde:
+      total_aval: {taxe: "103", libelle: "Total TVA en aval"}
+      total_amont_deductible: {taxe: "104", libelle: "Total TVA en amont deductible"}
+      excedent: {taxe: "105", libelle: "Solde a payer / a restituer"}

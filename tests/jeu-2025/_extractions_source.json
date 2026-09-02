@@ -1,0 +1,802 @@
+{
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-01-15 A2501.pdf": {
+    "sens": "achat",
+    "emetteur": "Bureau Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Bureau Lux SA",
+    "pays": "LU",
+    "num_facture": "A2501",
+    "date": "2025-01-15",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 2340.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Office supplies",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 2000.0,
+        "tva": 340.0,
+        "description": "Office supplies"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-01-28 A2502.pdf": {
+    "sens": "achat",
+    "emetteur": "Resto Lux Sarl",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Resto Lux Sarl",
+    "pays": "LU",
+    "num_facture": "A2502",
+    "date": "2025-01-28",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 463.5,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Catering",
+    "lignes": [
+      {
+        "taux": 0.03,
+        "base": 450.0,
+        "tva": 13.5,
+        "description": "Catering"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-02-10 A2503.pdf": {
+    "sens": "achat",
+    "emetteur": "Immo Faiencerie SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Immo Faiencerie SA",
+    "pays": "LU",
+    "num_facture": "A2503",
+    "date": "2025-02-10",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 1800.0,
+    "regime": "exonere_art44",
+    "source_extraction": "simule",
+    "objet": "Office rent",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 1800.0,
+        "tva": 0.0,
+        "description": "Office rent"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-02-20 A2504.pdf": {
+    "sens": "achat",
+    "emetteur": "Gaz et Elec Lux",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Gaz et Elec Lux",
+    "pays": "LU",
+    "num_facture": "A2504",
+    "date": "2025-02-20",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 1296.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Utilities",
+    "lignes": [
+      {
+        "taux": 0.08,
+        "base": 1200.0,
+        "tva": 96.0,
+        "description": "Utilities"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-03-05 A2505.pdf": {
+    "sens": "achat",
+    "emetteur": "Hotel Kirchberg",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Hotel Kirchberg",
+    "pays": "LU",
+    "num_facture": "A2505",
+    "date": "2025-03-05",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 912.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Accommodation",
+    "lignes": [
+      {
+        "taux": 0.14,
+        "base": 800.0,
+        "tva": 112.0,
+        "description": "Accommodation"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-03-18 A2506.pdf": {
+    "sens": "achat",
+    "emetteur": "Software GmbH",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Software GmbH",
+    "pays": "DE",
+    "num_facture": "A2506",
+    "date": "2025-03-18",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 3000.0,
+    "regime": "service_autoliq",
+    "source_extraction": "simule",
+    "objet": "Software licences",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 3000.0,
+        "tva": 510.0,
+        "description": "Software licences"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q1/2025-03-25 A2507.pdf": {
+    "sens": "achat",
+    "emetteur": "Assurances Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Assurances Lux SA",
+    "pays": "LU",
+    "num_facture": "A2507",
+    "date": "2025-03-25",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 620.0,
+    "regime": "exonere_art44",
+    "source_extraction": "simule",
+    "objet": "Insurance",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 620.0,
+        "tva": 0.0,
+        "description": "Insurance"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-04-08 A2508.pdf": {
+    "sens": "achat",
+    "emetteur": "Mobilier Belge SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Mobilier Belge SA",
+    "pays": "BE",
+    "num_facture": "A2508",
+    "date": "2025-04-08",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 4500.0,
+    "regime": "acq_intracom",
+    "source_extraction": "simule",
+    "objet": "Office furniture",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 4500.0,
+        "tva": 765.0,
+        "description": "Office furniture"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-04-22 A2509.pdf": {
+    "sens": "achat",
+    "emetteur": "Cloud Corp",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Cloud Corp",
+    "pays": "US",
+    "num_facture": "A2509",
+    "date": "2025-04-22",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 2400.0,
+    "regime": "service_autoliq_tiers",
+    "source_extraction": "simule",
+    "objet": "Cloud services",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 2400.0,
+        "tva": 408.0,
+        "description": "Cloud services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-05-14 A2510.pdf": {
+    "sens": "achat",
+    "emetteur": "Bureau Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Bureau Lux SA",
+    "pays": "LU",
+    "num_facture": "A2510",
+    "date": "2025-05-14",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 1755.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Office supplies",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 1500.0,
+        "tva": 255.0,
+        "description": "Office supplies"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-05-30 A2511.pdf": {
+    "sens": "achat",
+    "emetteur": "Import CN Ltd",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Import CN Ltd",
+    "pays": "CN",
+    "num_facture": "A2511",
+    "date": "2025-05-30",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 5200.0,
+    "regime": "import",
+    "source_extraction": "simule",
+    "objet": "Imported equipment",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 5200.0,
+        "tva": 884.0,
+        "description": "Imported equipment"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-06-11 A2512 (rescan).pdf": {
+    "sens": "achat",
+    "emetteur": "Telecom Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Telecom Lux SA",
+    "pays": "LU",
+    "num_facture": "A2512",
+    "date": "2025-06-11",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 280.8,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Phone costs",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 240.0,
+        "tva": 40.8,
+        "description": "Phone costs"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q2/2025-06-11 A2512.pdf": {
+    "sens": "achat",
+    "emetteur": "Telecom Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Telecom Lux SA",
+    "pays": "LU",
+    "num_facture": "A2512",
+    "date": "2025-06-11",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 280.8,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Phone costs",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 240.0,
+        "tva": 40.8,
+        "description": "Phone costs"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q3/2025-07-09 A2513.pdf": {
+    "sens": "achat",
+    "emetteur": "Conseil FR SARL",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Conseil FR SARL",
+    "pays": "FR",
+    "num_facture": "A2513",
+    "date": "2025-07-09",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 6000.0,
+    "regime": "service_autoliq",
+    "source_extraction": "simule",
+    "objet": "Consulting services",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 6000.0,
+        "tva": 1020.0,
+        "description": "Consulting services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q3/2025-08-19 A2514.pdf": {
+    "sens": "achat",
+    "emetteur": "Librairie Lux",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Librairie Lux",
+    "pays": "LU",
+    "num_facture": "A2514",
+    "date": "2025-08-19",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 309.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Books and publications",
+    "lignes": [
+      {
+        "taux": 0.03,
+        "base": 300.0,
+        "tva": 9.0,
+        "description": "Books and publications"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q3/2025-09-02 A2515.pdf": {
+    "sens": "achat",
+    "emetteur": "Materiel NL BV",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Materiel NL BV",
+    "pays": "NL",
+    "num_facture": "A2515",
+    "date": "2025-09-02",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 2800.0,
+    "regime": "acq_intracom",
+    "source_extraction": "simule",
+    "objet": "IT hardware",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 2800.0,
+        "tva": 476.0,
+        "description": "IT hardware"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q4/2025-10-15 A2516.pdf": {
+    "sens": "achat",
+    "emetteur": "Bureau Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Bureau Lux SA",
+    "pays": "LU",
+    "num_facture": "A2516",
+    "date": "2025-10-15",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 2047.5,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Office supplies",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 1750.0,
+        "tva": 297.5,
+        "description": "Office supplies"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q4/2025-11-20 A2517.pdf": {
+    "sens": "achat",
+    "emetteur": "Restaurant Lux",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Restaurant Lux",
+    "pays": "LU",
+    "num_facture": "A2517",
+    "date": "2025-11-20",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 729.6,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Business meals",
+    "lignes": [
+      {
+        "taux": 0.14,
+        "base": 640.0,
+        "tva": 89.6,
+        "description": "Business meals"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Achats/2025-Q4/2025-12-10 A2518.pdf": {
+    "sens": "achat",
+    "emetteur": "Audit Lux SA",
+    "emetteur_tva": null,
+    "destinataire": "TESTCO S.a r.l.",
+    "destinataire_tva": "LU12345678",
+    "tiers": "Audit Lux SA",
+    "pays": "LU",
+    "num_facture": "A2518",
+    "date": "2025-12-10",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 11115.0,
+    "regime": "achat_lu",
+    "source_extraction": "simule",
+    "objet": "Audit fees",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 9500.0,
+        "tva": 1615.0,
+        "description": "Audit fees"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q1/2025-01-20 V2501.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux One SA",
+    "destinataire_tva": null,
+    "tiers": "Client Lux One SA",
+    "pays": "LU",
+    "num_facture": "V2501",
+    "date": "2025-01-20",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 29250.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Administrative services",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 25000.0,
+        "tva": 4250.0,
+        "description": "Administrative services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q1/2025-02-14 V2502.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux Two Sarl",
+    "destinataire_tva": null,
+    "tiers": "Client Lux Two Sarl",
+    "pays": "LU",
+    "num_facture": "V2502",
+    "date": "2025-02-14",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 5150.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Publications",
+    "lignes": [
+      {
+        "taux": 0.03,
+        "base": 5000.0,
+        "tva": 150.0,
+        "description": "Publications"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q1/2025-03-28 V2503.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Kunde DE GmbH",
+    "destinataire_tva": null,
+    "tiers": "Kunde DE GmbH",
+    "pays": "DE",
+    "num_facture": "V2503",
+    "date": "2025-03-28",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 40000.0,
+    "regime": "livraison_intracom",
+    "source_extraction": "simule",
+    "objet": "Intra-community supply",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 40000.0,
+        "tva": 0.0,
+        "description": "Intra-community supply"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q2/2025-04-15 V2504.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client US Inc",
+    "destinataire_tva": null,
+    "tiers": "Client US Inc",
+    "pays": "US",
+    "num_facture": "V2504",
+    "date": "2025-04-15",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 30000.0,
+    "regime": "export",
+    "source_extraction": "simule",
+    "objet": "Export of goods",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 30000.0,
+        "tva": 0.0,
+        "description": "Export of goods"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q2/2025-05-20 V2505.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux Three SA",
+    "destinataire_tva": null,
+    "tiers": "Client Lux Three SA",
+    "pays": "LU",
+    "num_facture": "V2505",
+    "date": "2025-05-20",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 8640.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Technical services",
+    "lignes": [
+      {
+        "taux": 0.08,
+        "base": 8000.0,
+        "tva": 640.0,
+        "description": "Technical services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q2/2025-06-27 V2506.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client UK Ltd",
+    "destinataire_tva": null,
+    "tiers": "Client UK Ltd",
+    "pays": "UK",
+    "num_facture": "V2506",
+    "date": "2025-06-27",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 35000.0,
+    "regime": "hors_ue",
+    "source_extraction": "simule",
+    "objet": "Advisory services fee",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 35000.0,
+        "tva": 0.0,
+        "description": "Advisory services fee"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q2/2025-06-30 V2507.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Groupe Lux entities",
+    "destinataire_tva": null,
+    "tiers": "Groupe Lux entities",
+    "pays": "LU",
+    "num_facture": "V2507",
+    "date": "2025-06-30",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 60000.0,
+    "regime": "exonere_art44",
+    "source_extraction": "simule",
+    "objet": "Sub-lease services",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 60000.0,
+        "tva": 0.0,
+        "description": "Sub-lease services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q3/2025-07-18 V2508.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux One SA",
+    "destinataire_tva": null,
+    "tiers": "Client Lux One SA",
+    "pays": "LU",
+    "num_facture": "V2508",
+    "date": "2025-07-18",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 29250.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Administrative services",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 25000.0,
+        "tva": 4250.0,
+        "description": "Administrative services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q3/2025-08-29 V2509.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client FR SAS",
+    "destinataire_tva": null,
+    "tiers": "Client FR SAS",
+    "pays": "FR",
+    "num_facture": "V2509",
+    "date": "2025-08-29",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 22000.0,
+    "regime": "livraison_intracom",
+    "source_extraction": "simule",
+    "objet": "Intra-community supply",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 22000.0,
+        "tva": 0.0,
+        "description": "Intra-community supply"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q3/2025-09-30 V2510.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux Four SA",
+    "destinataire_tva": null,
+    "tiers": "Client Lux Four SA",
+    "pays": "LU",
+    "num_facture": "V2510",
+    "date": "2025-09-30",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 6840.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Hospitality services",
+    "lignes": [
+      {
+        "taux": 0.14,
+        "base": 6000.0,
+        "tva": 840.0,
+        "description": "Hospitality services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q4/2025-10-24 V2511.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client CH SA",
+    "destinataire_tva": null,
+    "tiers": "Client CH SA",
+    "pays": "CH",
+    "num_facture": "V2511",
+    "date": "2025-10-24",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 18000.0,
+    "regime": "hors_ue",
+    "source_extraction": "simule",
+    "objet": "Advisory services fee",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 18000.0,
+        "tva": 0.0,
+        "description": "Advisory services fee"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q4/2025-11-28 V2512.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client Lux One SA",
+    "destinataire_tva": null,
+    "tiers": "Client Lux One SA",
+    "pays": "LU",
+    "num_facture": "V2512",
+    "date": "2025-11-28",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 29250.0,
+    "regime": "vente_lu",
+    "source_extraction": "simule",
+    "objet": "Administrative services",
+    "lignes": [
+      {
+        "taux": 0.17,
+        "base": 25000.0,
+        "tva": 4250.0,
+        "description": "Administrative services"
+      }
+    ]
+  },
+  "/sessions/rcw-01kxf4gqcexbdwciuya7zx9r/mnt/VAT/_TEMPLATE-ANNEXES-TVA/tests/jeu-2025/dossier-client/Ventes/2025-Q4/2025-12-19 V2513.pdf": {
+    "sens": "vente",
+    "emetteur": "TESTCO S.a r.l.",
+    "emetteur_tva": "LU12345678",
+    "destinataire": "Client JP KK",
+    "destinataire_tva": null,
+    "tiers": "Client JP KK",
+    "pays": "JP",
+    "num_facture": "V2513",
+    "date": "2025-12-19",
+    "devise": "EUR",
+    "taux_change": 1.0,
+    "total_ttc": 12000.0,
+    "regime": "export",
+    "source_extraction": "simule",
+    "objet": "Export of goods",
+    "lignes": [
+      {
+        "taux": 0.0,
+        "base": 12000.0,
+        "tva": 0.0,
+        "description": "Export of goods"
+      }
+    ]
+  }
+}

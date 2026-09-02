@@ -1,0 +1,93 @@
+==============================================================================
+                   CORRESPONDANCE VERS LA DECLARATION eCDF                    
+==============================================================================
+
+Societe    : TESTCO S.a r.l.
+Matricule  : 2020 2400 000
+Periode    : Quarter 3 2025
+Genere le  : 02/09/2026 12:09
+
+Formulaire      : Declaration mensuelle / trimestrielle - TVA_DECM (TVA_DECM_2020)
+Version source  : 2020M1V002
+STATUT MAPPING  : A_VALIDER
+
+  Formulaire eCDF TVA_DECM version 2020M1V002 (periode 2020M07). Les cases communes ont ete alignees sur celles relevees sur le TVA_DECA 2025, les identifiants eCDF etant en principe partages entre formulaires - MAIS CE POINT N'EST PAS VERIFIE. La communication officielle du 02/09/2024 ajoute par ailleurs au DECM les champs 481, 482, 491, 492, 493 et modifie les regles du champ 021, non repris ici.
+
+******************************************************************************
+  ATTENTION : les numeros de cases n'ont pas ete valides contre le
+  formulaire en vigueur. Aucun depot ne doit etre effectue sur cette
+  base avant verification.
+******************************************************************************
+
+------------------------------------------------------------------------------
+CASE   LIBELLE                                       MONTANT EUR
+------------------------------------------------------------------------------
+
+TURNOVER
+012    Chiffre d'affaires global (base)                 53000.00
+013    Livraisons intracommunautaires de biens (base)       22000.00
+
+AVAL
+701    Base / taxe au taux normal 17% (base)            25000.00
+702    Base / taxe au taux normal 17%                    4250.00
+703    Base / taxe au taux intermediaire 14% (base)        6000.00
+704    Base / taxe au taux intermediaire 14%              840.00
+
+AUTOLIQUIDATION
+051    Total acquisitions intracommunautaires (base)        2800.00
+056    Total acquisitions intracommunautaires             476.00
+409    Total prestations de services recues (base)        6000.00
+410    Total prestations de services recues              1020.00
+711    Acquisitions intracommunautaires 17% (base)        2800.00
+712    Acquisitions intracommunautaires 17%               476.00
+741    Prestations UE 17% (base)                         6000.00
+742    Prestations UE 17%                                1020.00
+
+AMONT
+093    Total TVA en amont                                1505.00
+095    Part non recuperable (art. 50)                     285.95
+102    TVA en amont deductible                           1219.05
+
+SOLDE
+103    Total TVA en aval                                 6586.00
+104    Total TVA en amont deductible                     1219.05
+105    Solde a payer / a restituer                       5366.95
+
+------------------------------------------------------------------------------
+COMPOSITION DE LA TAXE
+------------------------------------------------------------------------------
+  (la TVA autoliquidee est due en aval ET deductible en amont ;
+   le formulaire le confirme : 076 = 046 + 056 + 407 + 410 + 768 + 227)
+
+  TVA collectee sur ventes    :    5090.00
+  TVA autoliquidee (due)      :    1496.00
+  Total TVA en aval           :    6586.00
+
+  TVA sur achats              :       9.00
+  TVA autoliquidee (deductible):   1496.00
+  Total TVA en amont          :    1505.00
+
+------------------------------------------------------------------------------
+DROIT A DEDUCTION (prorata general, art. 50)
+------------------------------------------------------------------------------
+  CA de l'annee - total        :  311000.00
+  CA ouvrant droit a deduction :  251000.00
+  Prorata brut                 : 0.807074
+  Prorata applique             : 81 %   (calcule sur le CA 2025 - PROVISOIRE : CA partiel de l'exercice, a regulariser sur l'annuelle)
+
+  TVA en amont totale     : 1505.00
+  TVA deductible          : 1219.05
+  TVA non deductible      : 285.95
+
+******************************************************************************
+MONTANTS SANS CASE MAPPEE - A AFFECTER MANUELLEMENT
+******************************************************************************
+  total_exonerations                             base   22000.00   taxe          -
+  ca_taxable                                     base   31000.00   taxe          -
+  ventes_lu_total                                base   31000.00   taxe    5090.00
+  services_recus_ue_total                        base    6000.00   taxe    1020.00
+  tva_amont_non_deductible                       base          -   taxe     285.95
+  total_taxe_due                                 base          -   taxe    6586.00
+
+==============================================================================
+Fin du rapport.

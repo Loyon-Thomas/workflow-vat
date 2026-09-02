@@ -1,0 +1,100 @@
+==============================================================================
+                   CORRESPONDANCE VERS LA DECLARATION eCDF                    
+==============================================================================
+
+Societe    : TESTCO S.a r.l.
+Matricule  : 2020 2400 000
+Periode    : Annual 2025
+Genere le  : 02/09/2026 12:09
+
+Formulaire      : Declaration annuelle - TVA_DECA (TVA_DECA_2025)
+Version source  : 2025M1V002
+STATUT MAPPING  : VALIDE
+
+  Formulaire officiel eCDF TVA_DECA, version 2025M1V002, edition anglaise "VALUE ADDED TAX - Return for year 2025", lu directement le 02/09/2026. Numeros releves sur les sections I a IV du formulaire.
+
+------------------------------------------------------------------------------
+CASE   LIBELLE                                       MONTANT EUR
+------------------------------------------------------------------------------
+
+TURNOVER
+012    Total sales / receipts (overall turnover) (base)      311000.00
+021    Exemptions and deductible amounts (base)        217000.00
+022    Taxable turnover (012-021) (base)                94000.00
+013    Intra-Community supply of goods (base)           62000.00
+014    Exports (Art. 43(1)(a) and (b)) (base)           42000.00
+016    Other exemptions (Art. 44 and 56quater) (base)       60000.00
+019    Other supplies with place of supply abroad (base)       53000.00
+
+AVAL
+037    Breakdown of taxable turnover - total (base)       94000.00
+046    Breakdown of taxable turnover - total            14380.00
+701    Taxable turnover at 17% (base)                   75000.00
+702    Taxable turnover at 17%                          12750.00
+703    Taxable turnover at 14% (base)                    6000.00
+704    Taxable turnover at 14%                            840.00
+705    Taxable turnover at 8% (base)                     8000.00
+706    Taxable turnover at 8%                             640.00
+031    Taxable turnover at 3% (base)                     5000.00
+040    Taxable turnover at 3%                             150.00
+
+AUTOLIQUIDATION
+051    Intra-Community acquisitions of goods - to (base)        7300.00
+056    Intra-Community acquisitions of goods - to        1241.00
+065    Importation of goods - total (base)               5200.00
+407    Importation of goods - total                       884.00
+409    Services received - customer liable, total (base)       11400.00
+410    Services received - customer liable, total        1938.00
+436    Services received from EU suppliers (base)        9000.00
+462    Services received from EU suppliers               1530.00
+463    Services received from non-EU suppliers (base)        2400.00
+464    Services received from non-EU suppliers            408.00
+711    Intra-Community acquisitions at 17% (base)        7300.00
+712    Intra-Community acquisitions at 17%               1241.00
+721    Importation of goods at 17% (base)                5200.00
+722    Importation of goods at 17%                        884.00
+741    Services received from EU suppliers at 17% (base)        9000.00
+742    Services received from EU suppliers at 17%        1530.00
+751    Services received from non-EU suppliers at (base)        2400.00
+752    Services received from non-EU suppliers at         408.00
+
+AMONT
+093    Total input tax                                   6931.40
+095    Non recoverable proportion (Art. 50)              1316.97
+097    Total input tax non-deductible                    1316.97
+102    Total input tax deductible (093-097+101)          5614.43
+
+SOLDE
+076    Total tax due (046+056+407+410+768+227)          18443.00
+103    Total tax due (carried forward from II.H)        18443.00
+104    Total input tax deductible (from III.D)           5614.43
+105    Exceeding amount (103-104)                       12828.57
+
+------------------------------------------------------------------------------
+COMPOSITION DE LA TAXE
+------------------------------------------------------------------------------
+  (la TVA autoliquidee est due en aval ET deductible en amont ;
+   le formulaire le confirme : 076 = 046 + 056 + 407 + 410 + 768 + 227)
+
+  TVA collectee sur ventes    :   14380.00
+  TVA autoliquidee (due)      :    4063.00
+  Total TVA en aval           :   18443.00
+
+  TVA sur achats              :    2868.40
+  TVA autoliquidee (deductible):   4063.00
+  Total TVA en amont          :    6931.40
+
+------------------------------------------------------------------------------
+DROIT A DEDUCTION (prorata general, art. 50)
+------------------------------------------------------------------------------
+  CA de l'annee - total        :  311000.00
+  CA ouvrant droit a deduction :  251000.00
+  Prorata brut                 : 0.807074
+  Prorata applique             : 81 %   (calcule sur le CA 2025)
+
+  TVA en amont totale     : 6931.40
+  TVA deductible          : 5614.43
+  TVA non deductible      : 1316.97
+
+==============================================================================
+Fin du rapport.

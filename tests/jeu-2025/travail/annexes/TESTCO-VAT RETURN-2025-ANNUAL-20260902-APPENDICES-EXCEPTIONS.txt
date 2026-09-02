@@ -1,0 +1,35 @@
+==============================================================================
+                                  EXCEPTIONS                                  
+==============================================================================
+
+Societe    : TESTCO S.a r.l.
+Matricule  : 2020 2400 000
+Periode    : Annual 2025
+Genere le  : 02/09/2026 12:09
+
+Bloquantes : 1   |   A revoir : 0   |   Hors periode : 0
+
+Aucune ligne bloquante n'est integree aux annexes.
+
+Ce livrable - annexes, correspondance eCDF et present rapport - est soumis
+au client pour accord avant depot. L'accord du client sur le lot de factures
+retenu vaut confirmation de completude.
+------------------------------------------------------------------------------
+
+BLOQUANTES (1)
+------------------------------------------------------------------------------
+  [C6] Telecom Lux SA / A2512
+        Facture deja presente (Achats/2025-Q2/2025-06-11 A2512 (rescan).pdf)
+        fichier : Achats/2025-Q2/2025-06-11 A2512.pdf
+
+A REVOIR (0)
+------------------------------------------------------------------------------
+  neant
+
+HORS PERIODE - REGISTRE DE REPRISE (0)
+------------------------------------------------------------------------------
+  neant
+
+
+==============================================================================
+Fin du rapport.

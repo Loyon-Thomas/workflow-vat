@@ -1,0 +1,95 @@
+==============================================================================
+                     RECONCILIATION POST-COMPTABILISATION                     
+                                Exercice 2024                                 
+==============================================================================
+
+Societe   : Societe de test S.a r.l.
+Matricule : 0000 0000 000
+Genere le : 02/09/2026 11:47
+
+------------------------------------------------------------------------------
+AXE A - LES PERIODIQUES CUMULEES FONT-ELLES L'ANNUELLE ?
+------------------------------------------------------------------------------
+  Periodes declarees : 2 / 4 attendues
+  Factures distinctes cumulees : 10
+  Anomalies de cumul : 4
+
+  [R1] 2024-Q3
+        Aucune declaration periodique produite pour cette periode
+  [R1] 2024-Q4
+        Aucune declaration periodique produite pour cette periode
+  [R2] 2024-Q1
+        1 exception(s) bloquante(s) non soldee(s) a la generation du 2025-01-15
+  [R3] 2024-Q1, 2024-Q2
+        Facture F2401 declaree dans plusieurs periodes au taux 17%
+
+  Cumul achats : base      4459.00   TVA     762.03
+  Cumul ventes : base         0.00   TVA       0.00
+
+------------------------------------------------------------------------------
+AXE B - DECLARE vs COMPTABILITE
+------------------------------------------------------------------------------
+  Concordants                            6  soit  46.2 %
+  Ecarts de montant                      3
+  Declares non comptabilises             1
+  COMPTABILISES NON DECLARES             3
+
+
+ECARTS DE MONTANT (3)
+------------------------------------------------------------------------------
+  Meme facture des deux cotes, montants divergents.
+
+  Fournisseur 01             F2401              piece 24001      [certain (n de facture)]
+        base  declaree     200.00   compta     100.00   ecart   +100.00
+        TVA   declaree      34.00   compta      17.00   ecart    +17.00
+  Fournisseur 08             F2408              piece 24008      [certain (n de facture)]
+        base  declaree     800.00   compta     800.00   ecart     +0.00
+        TVA   declaree     140.00   compta     136.00   ecart     +4.00
+  Fournisseur 04             F2404              piece 24004      [certain (n de facture)]
+        base  declaree     410.00   compta     400.00   ecart    +10.00
+        TVA   declaree      69.70   compta      68.00   ecart     +1.70
+
+  Ecart TVA cumule : +22.70
+
+
+DECLARES NON COMPTABILISES (1)
+------------------------------------------------------------------------------
+  Declares a l'administration, absents de la comptabilite.
+  Soit la piece n'a pas ete comptabilisee, soit elle l'a ete
+  sous une reference que le rapprochement n'atteint pas.
+
+  2024-04-30  Fournisseur 99             F9999              base     999.00  TVA    169.83  [2024-Q2]
+
+  TVA concernee : 169.83
+
+
+******************************************************************************
+COMPTABILISES NON DECLARES (3)
+******************************************************************************
+  Presents en comptabilite, absents de toute declaration periodique.
+  C'est le manquement declaratif : la TVA correspondante n'a jamais
+  ete portee a l'administration. A traiter en rectificative ou en
+  regularisation sur la periode courante.
+
+  2024-03-18  piece 24006      ACH      base     600.00  TVA    102.00
+        Fournisseur 06 facture F2406
+  2024-03-08  piece 24005      ACH      base     500.00  TVA     85.00
+        Fournisseur 05 facture F2405
+  2024-03-28  piece 24011      ACH      base     350.00  TVA     59.50
+        Fournisseur 11 facture F2411
+
+  TVA JAMAIS DECLAREE : 246.50
+
+
+------------------------------------------------------------------------------
+LIMITES
+------------------------------------------------------------------------------
+  Le rapprochement s'appuie sur le numero de facture lu dans le libelle
+  de la piece comptable, puis a defaut sur les montants et la date. Un
+  rapprochement de confiance 'faible' (montants seuls) peut associer deux
+  operations distinctes de meme montant : verifier ces lignes.
+  Le module ne requalifie aucune operation et ne juge pas si un ecart
+  provient de la declaration ou de la comptabilite.
+
+==============================================================================
+Fin du rapport.

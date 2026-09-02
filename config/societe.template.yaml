@@ -1,0 +1,51 @@
+# =====================================================================
+# PARAMETRES SOCIETE - copier ce fichier sous dossiers/<CODE>/societe.yaml
+# Tout ce qui est propre a une societe vit ici. Le moteur ne change pas.
+# =====================================================================
+code: GACELS
+denomination: "GACE Luxembourg S.a r.l."
+numero_tva: "LU..."               # a renseigner
+matricule: "2016 2466 616"
+# Alias servant a reconnaitre la societe comme emetteur ou destinataire d'une
+# facture, lorsque le dossier source ne separe pas achats et ventes.
+alias_societe:
+  - "GACE Luxembourg sarl"
+  - "GACE Luxembourg S a r l"
+  - "GACE Luxembourg"
+
+# --- Sources et depot -------------------------------------------------
+# source_factures : dossier client connecte via Cowork, parcouru
+# recursivement. Les sous-dossiers commencant par '.' ou '_' sont ignores,
+# ainsi que tout fichier non-PDF.
+source_factures: null            # ex: "~/Documents/Clients/GACELS/Factures"
+dossier_sortie: null             # null -> <dossier>/annexes (espace de travail).
+                                 # Rien n'est jamais ecrit dans le dossier client.
+
+# SENS achat / vente - trois sources independantes, croisees :
+#   1. chemin      : segments du dossier (arborescence Achats/ Ventes/ separee)
+#   2. identite    : la societe est-elle emetteur ou destinataire de la facture
+#                    (fonctionne dans un DOSSIER UNIQUE melangeant les deux)
+#   3. extraction  : sens porte par le JSON de lecture
+# Toute divergence entre deux sources, comme l'absence des trois, est
+# bloquante (C11). La source 2 exige numero_tva ou alias_societe renseignes.
+detection_sens:
+  achats: ["achat", "achats", "purchase", "purchases", "fournisseur",
+           "fournisseurs", "supplier", "suppliers", "AP"]
+  ventes: ["vente", "ventes", "sale", "sales", "client", "clients",
+           "customer", "customers", "AR"]
+  defaut: null                   # null -> sens indetermine = exception C11
+
+# --- Regime -----------------------------------------------------------
+periodicite: trimestrielle          # mensuelle | trimestrielle
+# Exigibilite : NON PARAMETRABLE. Regime normal luxembourgeois, rattachement
+# par date d'emission de la facture (loi TVA 12.02.1979 mod., art. 24 par. 1er).
+# --- Droit a deduction ------------------------------------------------
+# Le prorata general (art. 50) est CALCULE sur le chiffre d'affaires de
+# l'annee civile : CA ouvrant droit / CA total, arrondi a l'unite superieure.
+# Le moteur agrege les ventes de la periode en cours et celles des autres
+# periodes deja declarees de l'exercice. La valeur calculee est proposee et
+# peut etre remplacee ; l'origine est tracee sur le livrable.
+# Sur une periode infra-annuelle, le prorata est PROVISOIRE (CA partiel).
+droit_deduction:
+  prorata_pourcent: null      # repli si aucun CA n'est disponible
+  exercice_reference: null    # origine du repli, pour la trace

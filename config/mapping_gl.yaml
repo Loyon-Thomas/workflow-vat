@@ -1,0 +1,40 @@
+# =====================================================================
+# CORRESPONDANCE DES COLONNES DE L'EXPORT GRAND LIVRE
+# Un profil par logiciel comptable. Selectionne par societe.yaml:profil_gl.
+# Les valeurs sont les EN-TETES exacts de la premiere ligne du fichier.
+# =====================================================================
+profils:
+
+  # Profil constate sur l'export du dossier GACE (17 colonnes)
+  standard_fr:
+    compte: "Compte general"
+    compte_alias: ["Compte général", "Compte", "Account"]
+    journal: "Journal"
+    piece: "N° document"
+    piece_alias: ["N document", "Document", "Piece"]
+    date: "Date document"
+    date_alias: ["Date piece", "Date"]
+    libelle: "Commentaire"
+    libelle_alias: ["Libelle", "Libellé", "Description"]
+    base: "Base HTVA"
+    base_alias: ["Base HT", "Base imposable"]
+    tva: "Montant TVA"
+    tva_alias: ["TVA", "Montant TVA"]
+    debit: "Montant (D)"
+    credit: "Montant (C)"
+    devise: "Code devise"
+    annee: "Annee civile"
+    annee_alias: ["Année civile", "Exercice"]
+
+# --- Selection des ecritures a rapprocher -----------------------------
+# Le rapprochement ne porte que sur les ecritures d'achat et de vente
+# portant une base ou une TVA. Le reste du grand livre est hors sujet.
+selection:
+  journaux_achats: ["ACH", "AC", "PURCH", "AP"]
+  journaux_ventes: ["VEN", "VE", "SALES", "AR"]
+  # classes de comptes retenues (prefixe) : charges, immobilisations, produits
+  prefixes_comptes: ["2", "6", "7"]
+
+# --- Tolerances --------------------------------------------------------
+tolerance_montant: 0.02      # EUR
+tolerance_jours: 7           # ecart de date accepte en rapprochement probable

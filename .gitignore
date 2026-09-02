@@ -1,0 +1,17 @@
+# ---------------------------------------------------------------------
+# DONNEES CLIENTS - ne doivent JAMAIS partir dans un depot distant
+# ---------------------------------------------------------------------
+dossiers/
+*.pdf
+!tests/**/*.pdf
+
+# Sorties de travail
+**/extraction/
+**/annexes/*.xlsx
+**/annexes/*-DECLARE.json
+!tests/**/annexes/
+
+# Divers
+__pycache__/
+*.pyc
+.DS_Store

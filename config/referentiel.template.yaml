@@ -1,0 +1,60 @@
+# =====================================================================
+# REFERENTIEL TIERS - copier sous dossiers/<CODE>/referentiel.yaml
+# Neutralise les erreurs de metadonnees (n de facture, libelle).
+# Une entree par fournisseur / client recurrent.
+# =====================================================================
+fournisseurs:
+  - nom: "SK Informatik S.a r.l."
+    alias: ["SK informatik", "SK Informatik Sarl"]
+    tva: "LU30508683"
+    format_num_facture: '^R\d{6}/\d{4}$'   # rejette le n de CLIENT 10158
+    libelle_standard: "IT equipment"
+    taux_attendus: [0.17]
+    periodicite: ponctuel                  # mensuel | trimestriel | ponctuel
+    bloc: achats_lu
+
+  - nom: "Prime Alliance Consulting Group S.a r.l."
+    alias: ["Prime Alliance Consulting Grou", "Prime Alliance"]
+    tva: "LU32892974"
+    format_num_facture: '^\d{6}$'
+    libelle_standard: null                 # 2 natures -> voir regles_libelle
+    regles_libelle:
+      - si_contient: ["Rent Office", "Loyer"]
+        libelle: "Rental Services"
+        taux_attendus: [0.0]
+        exoneration: "art. 44.1"
+      - si_contient: ["fees", "services"]
+        libelle: "Professional Services"
+        taux_attendus: [0.17]
+    periodicite: mensuel
+    bloc: achats_lu
+
+  - nom: "Faiencerie Services Administratifs S.a r.l."
+    alias: ["FSA"]
+    tva: "LU20371886"
+    format_num_facture: '^\d{10}$'          # rejette 20250800458 (11 car.)
+    libelle_standard: null
+    regles_libelle:
+      - si_contient: ["Parking"]
+        libelle: "Parking services"
+        taux_attendus: [0.17]
+      - si_contient: ["cheques-repas", "cheque-repas", "Sodexo"]
+        libelle: "Meal vouchers"
+        taux_attendus: [0.0, 0.17]
+        # [AVIS] la valeur faciale des cheques-repas n'est pas une
+        # prestation de services taxable; seule la commission l'est.
+        # Qualification a trancher par le preparateur.
+        signaler: "Qualification cheques-repas a confirmer"
+    periodicite: mensuel
+    bloc: achats_lu
+
+  - nom: "Orange Communications Luxembourg S.A."
+    alias: ["Orange"]
+    tva: "LU19749504"
+    format_num_facture: '^INV/\d{7}/\d{4}$'
+    libelle_standard: "Phone costs"
+    taux_attendus: [0.0, 0.17]
+    periodicite: mensuel
+    bloc: achats_lu
+
+clients: []

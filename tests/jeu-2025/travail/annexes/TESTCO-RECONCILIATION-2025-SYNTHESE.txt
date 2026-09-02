@@ -1,0 +1,81 @@
+==============================================================================
+                     RECONCILIATION POST-COMPTABILISATION                     
+                                Exercice 2025                                 
+==============================================================================
+
+Societe   : TESTCO S.a r.l.
+Matricule : 2020 2400 000
+Genere le : 02/09/2026 12:09
+
+------------------------------------------------------------------------------
+AXE A - LES PERIODIQUES CUMULEES FONT-ELLES L'ANNUELLE ?
+------------------------------------------------------------------------------
+  Periodes declarees : 4 / 4 attendues
+  Factures distinctes cumulees : 31
+  Anomalies de cumul : 1
+
+  [R2] 2025-Q2
+        1 exception(s) bloquante(s) non soldee(s) a la generation du 2026-09-02
+
+  Cumul achats : base     44700.00   TVA    6931.40
+  Cumul ventes : base    311000.00   TVA   14380.00
+
+------------------------------------------------------------------------------
+AXE B - DECLARE vs COMPTABILITE
+------------------------------------------------------------------------------
+  Concordants                           29  soit  87.9 %
+  Ecarts de montant                      1
+  Declares non comptabilises             1
+  COMPTABILISES NON DECLARES             2
+
+
+ECARTS DE MONTANT (1)
+------------------------------------------------------------------------------
+  Meme facture des deux cotes, montants divergents.
+
+  Bureau Lux SA              A2516              piece 20250015   [certain (n de facture)]
+        base  declaree    1750.00   compta    1700.00   ecart    +50.00
+        TVA   declaree     297.50   compta     289.00   ecart     +8.50
+
+  Ecart TVA cumule : +8.50
+
+
+DECLARES NON COMPTABILISES (1)
+------------------------------------------------------------------------------
+  Declares a l'administration, absents de la comptabilite.
+  Soit la piece n'a pas ete comptabilisee, soit elle l'a ete
+  sous une reference que le rapprochement n'atteint pas.
+
+  2025-03-25  Assurances Lux SA          A2507              base     620.00  TVA      0.00  [2025-Q1]
+
+  TVA concernee : 0.00
+
+
+******************************************************************************
+COMPTABILISES NON DECLARES (2)
+******************************************************************************
+  Presents en comptabilite, absents de toute declaration periodique.
+  C'est le manquement declaratif : la TVA correspondante n'a jamais
+  ete portee a l'administration. A traiter en rectificative ou en
+  regularisation sur la periode courante.
+
+  2025-12-28  piece 20250032   VEN      base    9000.00  TVA   1530.00
+        Client Lux Five SA facture V2514
+  2025-11-05  piece 20250031   ACH      base     780.00  TVA    132.60
+        Fournisseur Oublie Sarl facture A2519
+
+  TVA JAMAIS DECLAREE : 1662.60
+
+
+------------------------------------------------------------------------------
+LIMITES
+------------------------------------------------------------------------------
+  Le rapprochement s'appuie sur le numero de facture lu dans le libelle
+  de la piece comptable, puis a defaut sur les montants et la date. Un
+  rapprochement de confiance 'faible' (montants seuls) peut associer deux
+  operations distinctes de meme montant : verifier ces lignes.
+  Le module ne requalifie aucune operation et ne juge pas si un ecart
+  provient de la declaration ou de la comptabilite.
+
+==============================================================================
+Fin du rapport.

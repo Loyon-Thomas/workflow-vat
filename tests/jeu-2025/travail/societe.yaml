@@ -1,0 +1,32 @@
+code: TESTCO
+denomination: "TESTCO S.a r.l."
+numero_tva: "LU12345678"
+matricule: "2020 2400 000"
+alias_societe: ["TESTCO Sarl", "TESTCO"]
+
+source_factures: null
+dossier_sortie: null
+
+detection_sens:
+  achats: ["achat", "achats", "purchase", "purchases", "fournisseur", "supplier", "AP"]
+  ventes: ["vente", "ventes", "sale", "sales", "client", "clients", "customer", "AR"]
+  defaut: null
+
+periodicite: trimestrielle
+profil_gl: standard_fr
+
+droit_deduction:
+  exercice_reference: 2024
+  prorata_pourcent: 77
+
+devise_comptable: EUR
+taux_change:
+  source: BCE
+  regle: date_facture
+
+tolerance_arrondi: 0.02
+taux_admis: [0.0, 0.03, 0.08, 0.14, 0.17]
+
+sortie:
+  modele: format_actuel
+  nom_fichier: "{code}-VAT RETURN-{annee}-{periode}-{date_prod}-APPENDICES.xlsx"
