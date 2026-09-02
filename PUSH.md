@@ -1,46 +1,48 @@
 # Publier ce dépôt sur GitHub
 
-Le dépôt est **initialisé et committé en local**. Il ne restait qu'à le pousser :
-le jeton GitHub de la session Claude est invalide, la création du dépôt distant
-doit donc partir de ta machine, où tes identifiants sont disponibles.
+Le dépôt est **initialisé et committé en local**, 4 commits, 65 fichiers.
+
+Il n'a pas pu être poussé depuis la session Claude : le jeton GitHub de la
+session est limité aux dépôts qu'elle a déjà configurés, et refuse aussi bien la
+création (`POST /user/repos` → 403) que l'accès à un dépôt tiers. Le compte
+identifié est **`Loyon-Thomas`**.
 
 GitHub n'accepte pas d'espace dans un nom de dépôt : `workflow VAT` devient
 **`workflow-VAT`**.
 
-## Option A — avec le client GitHub (`gh`)
+## Option A — client GitHub
 
 ```bash
+brew install gh                    # gh n'est pas installé sur cette machine
 cd "~/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
-gh auth login                      # une seule fois
+gh auth login
 gh repo create workflow-VAT --private --source=. --remote=origin --push
 ```
 
-## Option B — sans `gh`
+## Option B — sans client
 
-Crée le dépôt **privé** `workflow-VAT` sur github.com, puis :
+Créer le dépôt **privé** `workflow-VAT` sur github.com (sans README ni
+.gitignore initial), puis :
 
 ```bash
 cd "~/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
-git remote add origin https://github.com/<ton-compte>/workflow-VAT.git
+git remote add origin https://github.com/Loyon-Thomas/workflow-VAT.git
 git branch -M main
 git push -u origin main
 ```
 
-## Confidentialité — à vérifier avant de pousser
+Git demandera l'identifiant et un **jeton d'accès personnel** (Settings →
+Developer settings → Personal access tokens), pas le mot de passe du compte.
 
-Le `.gitignore` exclut **toutes les données clients** :
+## Confidentialité — vérifié
 
-- `dossiers/` — dossiers de travail réels, dont GACELS
-- `*.pdf` sauf ceux des jeux d'essai fictifs
-- `**/extraction/`, les classeurs produits et les instantanés `-DECLARE.json`
-
-Le commit initial contient 32 fichiers : code, configurations, jeux d'essai
-fictifs et leurs rapports. **Aucune donnée GACE, aucune facture réelle.**
-Vérifie avant de pousser :
+Le `.gitignore` exclut `dossiers/` (dont GACELS), tous les PDF hors jeux
+d'essai fictifs, les dossiers `extraction/`, les classeurs produits et les
+instantanés `-DECLARE.json`.
 
 ```bash
-git ls-files | grep -iE "gace|gacels"      # doit ne rien renvoyer
+git ls-files | grep -i gace       # ne renvoie rien
 ```
 
-**Dépôt privé recommandé** : le mapping des cases eCDF et les règles de
-contrôle décrivent une méthode de travail interne.
+**Dépôt privé** : le mapping des cases eCDF et les règles de contrôle décrivent
+une méthode de travail interne.
