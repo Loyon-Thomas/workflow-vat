@@ -1,0 +1,45 @@
+#!/bin/bash
+# Version 0.1 -- localise puis lance webapp/serveur.py.
+#
+# Meme contrainte que LancerCampagneTVA.app : ce bundle doit vivre hors du
+# dossier pCloud pour etre executable (pCloud ne conserve pas le bit
+# executable), donc il ne peut pas deriver le chemin du depot de sa propre
+# position. Le chemin est mis en cache dans ~/.campagne_tva_depot -- le
+# meme fichier que l'autre lanceur, puisque c'est le meme depot.
+#
+# Tout ce qui suit est journalise dans ~/campagne_tva_web.log, y compris la
+# sortie de python3 : lance via Finder, ce script n'a aucun terminal pour
+# afficher une erreur, donc c'est le seul moyen de voir ce qui se passe.
+LOG="$HOME/campagne_tva_web.log"
+{
+echo "=== $(date) ==="
+echo "PID=$$  PPID=$PPID  PATH=$PATH"
+
+CACHE="$HOME/.campagne_tva_depot"
+CANDIDAT_PAR_DEFAUT="$HOME/pCloud Drive/pCloud Backup/MacBookAirdeThomas/Documents/Claude setup/Workflows/VAT/_TEMPLATE-ANNEXES-TVA"
+
+DIR=""
+if [ -f "$CACHE" ]; then
+    DIR="$(cat "$CACHE")"
+    echo "Cache lu : $DIR"
+fi
+if [ ! -f "$DIR/webapp/serveur.py" ] && [ -f "$CANDIDAT_PAR_DEFAUT/webapp/serveur.py" ]; then
+    DIR="$CANDIDAT_PAR_DEFAUT"
+    echo "Repli sur le candidat par defaut : $DIR"
+fi
+if [ ! -f "$DIR/webapp/serveur.py" ]; then
+    echo "Ni cache ni candidat par defaut valides -- ouverture du selecteur"
+    DIR="$(osascript -e 'POSIX path of (choose folder with prompt "Localiser le dossier _TEMPLATE-ANNEXES-TVA")' 2>>"$LOG")"
+    DIR="${DIR%/}"
+fi
+if [ ! -f "$DIR/webapp/serveur.py" ]; then
+    echo "ECHEC : webapp/serveur.py introuvable dans '$DIR'"
+    osascript -e 'display alert "Dossier introuvable" message "webapp/serveur.py introuvable dans le dossier choisi." as critical'
+    exit 1
+fi
+printf '%s' "$DIR" > "$CACHE"
+echo "DIR retenu : $DIR"
+cd "$DIR" || { echo "ECHEC : cd '$DIR'"; exit 1; }
+echo "Lancement de python3..."
+exec /usr/bin/env PYTHONUNBUFFERED=1 python3 "$DIR/webapp/serveur.py"
+} >> "$LOG" 2>&1

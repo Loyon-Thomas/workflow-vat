@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Campagne TVA — Importation (v0.1)</title>
+<style>
+  :root {
+    --fond: #f5f6f8;
+    --carte: #ffffff;
+    --texte: #1c1e21;
+    --discret: #6b7280;
+    --bordure: #e2e4e9;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --ok: #16a34a;
+    --alerte-fond: #fef2f2;
+    --alerte-bordure: #fecaca;
+    --alerte-texte: #991b1b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--texte);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  }
+  header {
+    padding: 20px 32px;
+    background: var(--carte);
+    border-bottom: 1px solid var(--bordure);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  header p { margin: 4px 0 0; color: var(--discret); font-size: 13px; }
+  #lien-quitter { color: var(--discret); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  #lien-quitter:hover { color: var(--alerte-texte); text-decoration: underline; }
+  main { max-width: 900px; margin: 24px auto; padding: 0 24px 64px; }
+  .carte {
+    background: var(--carte);
+    border: 1px solid var(--bordure);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .carte h2 {
+    margin: 0 0 16px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--discret);
+  }
+  .champ { margin-bottom: 16px; }
+  .champ label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  select, input[type=text] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--bordure);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--carte);
+    color: var(--texte);
+  }
+  .ligne-dossier { display: flex; gap: 8px; }
+  .ligne-dossier input { flex: 1; }
+  button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--bordure);
+    background: var(--carte);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--fond); }
+  button.principal {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-weight: 600;
+  }
+  button.principal:hover { background: var(--accent-hover); }
+  button:disabled { opacity: .5; cursor: default; }
+  .compteurs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .compteur {
+    background: var(--fond);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .compteur .valeur { font-size: 22px; font-weight: 700; }
+  .compteur .label { font-size: 12px; color: var(--discret); margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--bordure);
+  }
+  th { color: var(--discret); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .puce {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .puce.achat { background: #eff6ff; color: #1d4ed8; }
+  .puce.vente { background: #f0fdf4; color: #15803d; }
+  .puce.inconnu { background: #f3f4f6; color: #4b5563; }
+  .puce.natif { background: #f3f4f6; color: #374151; }
+  .puce.scan { background: #fff7ed; color: #c2410c; }
+  .doublons { font-size: 13px; }
+  .doublons li { margin-bottom: 4px; }
+  .alerte {
+    background: var(--alerte-fond);
+    border: 1px solid var(--alerte-bordure);
+    color: var(--alerte-texte);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+  .discret { color: var(--discret); }
+  .masque { display: none; }
+  .chargement { font-size: 13px; color: var(--discret); }
+  #ecran-2.large, .carte.large { max-width: 1400px; }
+  .deux-colonnes { display: flex; gap: 20px; align-items: flex-start; }
+  .colonne-table { flex: 1.4; min-width: 0; }
+  .colonne-pdf { flex: 1; position: sticky; top: 20px; }
+  .colonne-pdf iframe {
+    width: 100%; height: 82vh; border: 1px solid var(--bordure);
+    border-radius: 8px; background: #fff;
+  }
+  .colonne-pdf .vide {
+    color: var(--discret); text-align: center; padding: 60px 20px;
+    border: 1px dashed var(--bordure); border-radius: 8px;
+  }
+  table.detection { table-layout: fixed; }
+  table.detection tr.exception { background: var(--alerte-fond); }
+  table.detection tr.selectionnee td { outline: 2px solid var(--accent); outline-offset: -2px; }
+  table.detection tr { cursor: pointer; }
+  table.detection td.exception-msg { color: var(--alerte-texte); font-size: 12px; cursor: default; }
+  table.detection input, table.detection select {
+    width: 100%; border: 1px solid transparent; background: transparent;
+    font: inherit; padding: 2px 4px; border-radius: 4px;
+  }
+  table.detection input:hover, table.detection select:hover { border-color: var(--bordure); }
+  table.detection input:focus, table.detection select:focus {
+    border-color: var(--accent); background: #fff; outline: none;
+  }
+  .puce.bloquant { background: #fef2f2; color: #991b1b; }
+  .puce.revue { background: #fffbeb; color: #92400e; }
+  .retour { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="titre-page">Campagne TVA — Importation (v0.1)</h1>
+    <p id="sous-titre-page">Étape 1 sur 3 · s'exécute uniquement sur cette machine, rien n'est envoyé ailleurs</p>
+  </div>
+  <a href="#" id="lien-quitter">Fermer l'application</a>
+</header>
+
+<main id="ecran-1">
+
+  <section class="carte">
+    <h2>Société et source des factures</h2>
+
+    <div class="champ">
+      <label for="select-societe">Société</label>
+      <select id="select-societe"></select>
+    </div>
+
+    <div class="champ">
+      <label for="champ-factures">Dossier des factures</label>
+      <div class="ligne-dossier">
+        <input type="text" id="champ-factures" readonly>
+        <button id="bouton-choisir">Choisir…</button>
+      </div>
+    </div>
+
+    <div id="alerte-import" class="alerte masque"></div>
+
+    <button class="principal" id="bouton-inventaire">Lancer l'inventaire</button>
+    <span id="chargement-inventaire" class="chargement masque">Inventaire en cours…</span>
+  </section>
+
+  <section class="carte">
+    <h2>Type de déclaration et période</h2>
+    <p class="discret" style="margin-top:-8px;">
+      Choisie ici pour que la détection (étape suivante) porte sur le même
+      périmètre que la déclaration réelle — pas un aperçu approximatif.
+    </p>
+
+    <div class="champ">
+      <label>Type</label>
+      <div style="display:flex; gap:20px; margin-top:4px;">
+        <label style="font-weight:normal;"><input type="radio" name="type-decl" value="1"> Mensuelle</label>
+        <label style="font-weight:normal;"><input type="radio" name="type-decl" value="2" checked> Trimestrielle</label>
+        <label style="font-weight:normal;"><input type="radio" name="type-decl" value="3"> Annuelle</label>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:16px;">
+      <div class="champ" style="flex:1;">
+        <label for="champ-annee">Année</label>
+        <input type="text" id="champ-annee">
+      </div>
+      <div class="champ" id="conteneur-mois" style="flex:1;">
+        <label for="champ-mois">Mois (1-12)</label>
+        <input type="text" id="champ-mois">
+      </div>
+      <div class="champ masque" id="conteneur-trimestre" style="flex:1;">
+        <label for="champ-trimestre">Trimestre (1-4)</label>
+        <input type="text" id="champ-trimestre">
+      </div>
+    </div>
+  </section>
+
+  <section class="carte masque" id="carte-resultats">
+    <h2>Inventaire</h2>
+
+    <div class="compteurs">
+      <div class="compteur"><div class="valeur" id="c-uniques">–</div><div class="label">documents uniques</div></div>
+      <div class="compteur"><div class="valeur" id="c-doublons">–</div><div class="label">doublons écartés</div></div>
+      <div class="compteur"><div class="valeur" id="c-natifs">–</div><div class="label">natifs (texte)</div></div>
+      <div class="compteur"><div class="valeur" id="c-scans">–</div><div class="label">scans (vision)</div></div>
+    </div>
+
+    <div id="bloc-doublons" class="masque" style="margin-bottom: 20px;">
+      <h2>Doublons écartés</h2>
+      <ul class="doublons" id="liste-doublons"></ul>
+    </div>
+
+    <h2>Documents (<span id="nb-documents">0</span>)</h2>
+    <table>
+      <thead>
+        <tr><th>Fichier</th><th>Sens détecté (chemin)</th><th>Type</th></tr>
+      </thead>
+      <tbody id="corps-documents"></tbody>
+    </table>
+
+    <button class="principal" id="bouton-vers-detection" style="margin-top: 20px;">
+      Continuer vers la détection →
+    </button>
+  </section>
+
+</main>
+
+<div id="ecran-2" class="large masque">
+
+  <div class="retour">
+    <button id="bouton-retour-1">← Retour à l'importation</button>
+  </div>
+
+  <div class="carte" id="bandeau-apercu">
+    <span id="texte-apercu" class="discret">Détection en cours…</span>
+  </div>
+
+  <div class="deux-colonnes">
+    <div class="colonne-table">
+      <div class="carte">
+        <h2>Détection (<span id="nb-lignes-detection">0</span> ligne(s))</h2>
+        <p class="discret" style="margin-top:-8px;">
+          Une ligne par ligne de contrôle (une facture à plusieurs taux de TVA
+          donne plusieurs lignes). Champs en clair : modifiables, écrits dans
+          le JSON d'extraction de la facture.
+        </p>
+        <div style="overflow-x:auto;">
+          <table class="detection">
+            <thead>
+              <tr>
+                <th style="width:9%">Date</th>
+                <th style="width:16%">Tiers</th>
+                <th style="width:12%">N° facture</th>
+                <th style="width:9%">Sens</th>
+                <th style="width:13%">Régime</th>
+                <th style="width:9%">Base</th>
+                <th style="width:6%">Taux</th>
+                <th style="width:9%">TVA</th>
+                <th>Exception</th>
+              </tr>
+            </thead>
+            <tbody id="corps-detection"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="colonne-pdf">
+      <div id="visionneuse-vide" class="vide">Clique une ligne pour ouvrir la facture</div>
+      <iframe id="visionneuse-pdf" class="masque"></iframe>
+    </div>
+  </div>
+
+  <button class="principal" id="bouton-vers-compilation" style="margin-top: 20px;">
+    Continuer vers la compilation →
+  </button>
+
+</div>
+
+<div id="ecran-3" class="masque">
+
+  <div class="retour">
+    <button id="bouton-retour-2">← Retour à la détection</button>
+  </div>
+
+  <section class="carte">
+    <h2>Droit à déduction — prorata</h2>
+    <p id="texte-prorata" class="discret">Calcul en cours…</p>
+
+    <table id="table-calcul-prorata" style="margin-bottom: 16px;"></table>
+
+    <div class="champ" style="max-width: 200px;">
+      <label for="champ-prorata">Prorata retenu (%)</label>
+      <input type="text" id="champ-prorata">
+    </div>
+
+    <div id="alerte-prorata" class="alerte masque"></div>
+
+    <div id="alerte-generation" class="alerte masque"></div>
+
+    <button class="principal" id="bouton-generer">Lancer la génération</button>
+    <span id="chargement-generation" class="chargement masque">Génération en cours…</span>
+  </section>
+
+  <section class="carte masque large" id="bloc-generation">
+    <h2>Résultat</h2>
+
+    <div id="alerte-generation-finale" class="alerte masque"></div>
+
+    <div class="compteurs">
+      <div class="compteur"><div class="valeur" id="g-lignes">–</div><div class="label">lignes retenues</div></div>
+      <div class="compteur"><div class="valeur" id="g-exceptions">–</div><div class="label">exceptions bloquantes</div></div>
+      <div class="compteur"><div class="valeur" id="g-tva-amont">–</div><div class="label">TVA amont</div></div>
+      <div class="compteur"><div class="valeur" id="g-tva-deductible">–</div><div class="label">TVA déductible</div></div>
+    </div>
+
+    <div class="deux-colonnes">
+      <div class="colonne-table">
+        <h2>Fichiers produits</h2>
+        <p class="discret" style="margin-top:-8px;">
+          Clique un fichier pour le prévisualiser à droite.
+        </p>
+        <ul id="liste-fichiers" class="doublons"></ul>
+        <button id="bouton-ouvrir-dossier" style="margin-top: 12px;">Ouvrir le dossier dans le Finder</button>
+      </div>
+      <div class="colonne-pdf">
+        <div id="apercu-vide" class="vide">Clique un fichier pour le prévisualiser</div>
+        <iframe id="apercu-fichier" class="masque"></iframe>
+        <div id="apercu-non-disponible" class="vide masque">
+          Aperçu non disponible pour les classeurs Excel dans cette version 0.1.
+          <br><br>
+          <a id="lien-ouvrir-xlsx" href="#" target="_blank">Ouvrir / télécharger le fichier</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+let societes = [];
+let dossierCourant = null;
+let periodeCourante = null;
+const REGIMES = ["achat_lu", "exonere_art44", "acq_intracom", "service_autoliq",
+                  "import", "vente_lu", "livraison_intracom", "export", "hors_ue"];
+
+// -- type de déclaration et période (dès l'écran 1, pour que la détection
+//    porte sur le meme perimetre que la declaration reelle) -----------
+
+function mettreAJourVisibilitePeriode() {
+  const type = document.querySelector('input[name="type-decl"]:checked').value;
+  document.getElementById("conteneur-mois").classList.toggle("masque", type !== "1");
+  document.getElementById("conteneur-trimestre").classList.toggle("masque", type !== "2");
+}
+document.querySelectorAll('input[name="type-decl"]').forEach(
+  r => r.addEventListener("change", mettreAJourVisibilitePeriode));
+
+(function initialiserPeriodeParDefaut() {
+  const auj = new Date();
+  document.getElementById("champ-annee").value = auj.getFullYear();
+  document.getElementById("champ-mois").value = auj.getMonth() + 1;
+  document.getElementById("champ-trimestre").value = Math.floor(auj.getMonth() / 3) + 1;
+  mettreAJourVisibilitePeriode();
+})();
+
+function construirePeriode() {
+  const annee = document.getElementById("champ-annee").value.trim();
+  if (!/^\d{4}$/.test(annee)) return null;
+  const type = document.querySelector('input[name="type-decl"]:checked').value;
+  if (type === "1") {
+    const mois = document.getElementById("champ-mois").value.trim();
+    if (!/^([1-9]|1[0-2])$/.test(mois)) return null;
+    return annee + "-M" + String(mois).padStart(2, "0");
+  } else if (type === "2") {
+    const trimestre = document.getElementById("champ-trimestre").value.trim();
+    if (!["1", "2", "3", "4"].includes(trimestre)) return null;
+    return annee + "-Q" + trimestre;
+  }
+  return annee + "-ANNUAL";
+}
+
+async function chargerSocietes() {
+  const r = await fetch("/api/societes");
+  const data = await r.json();
+  societes = data.societes;
+  const select = document.getElementById("select-societe");
+  select.innerHTML = "";
+  if (societes.length === 0) {
+    select.innerHTML = "<option>Aucun dossier sous dossiers/</option>";
+    document.getElementById("bouton-inventaire").disabled = true;
+    return;
+  }
+  for (const s of societes) {
+    const opt = document.createElement("option");
+    opt.value = s.dossier;
+    opt.textContent = s.denomination + " (" + s.code + ")";
+    select.appendChild(opt);
+  }
+  appliquerSocieteChoisie();
+}
+
+function appliquerSocieteChoisie() {
+  const dossier = document.getElementById("select-societe").value;
+  const s = societes.find(x => x.dossier === dossier);
+  if (s) {
+    document.getElementById("champ-factures").value = s.source_factures;
+  }
+}
+
+function afficherAlerte(id, message) {
+  const el = document.getElementById(id);
+  if (!message) {
+    el.classList.add("masque");
+    el.textContent = "";
+  } else {
+    el.classList.remove("masque");
+    el.textContent = message;
+  }
+}
+
+document.getElementById("select-societe").addEventListener("change", appliquerSocieteChoisie);
+
+document.getElementById("bouton-choisir").addEventListener("click", async () => {
+  const bouton = document.getElementById("bouton-choisir");
+  bouton.disabled = true;
+  try {
+    const r = await fetch("/api/choisir-dossier-factures", { method: "POST" });
+    const data = await r.json();
+    if (data.chemin) {
+      document.getElementById("champ-factures").value = data.chemin;
+    }
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
+document.getElementById("bouton-inventaire").addEventListener("click", async () => {
+  afficherAlerte("alerte-import", null);
+  const dossier = document.getElementById("select-societe").value;
+  const factures = document.getElementById("champ-factures").value;
+  const bouton = document.getElementById("bouton-inventaire");
+  bouton.disabled = true;
+  document.getElementById("chargement-inventaire").classList.remove("masque");
+  try {
+    const r = await fetch("/api/inventaire", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier, factures }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      afficherAlerte("alerte-import", data.erreur || "Échec de l'inventaire.");
+      return;
+    }
+    afficherResultats(data);
+  } catch (e) {
+    afficherAlerte("alerte-import", "Erreur : " + e);
+  } finally {
+    bouton.disabled = false;
+    document.getElementById("chargement-inventaire").classList.add("masque");
+  }
+});
+
+function afficherResultats(data) {
+  dossierCourant = document.getElementById("select-societe").value;
+  document.getElementById("carte-resultats").classList.remove("masque");
+  document.getElementById("c-uniques").textContent = data.nb_fichiers;
+  document.getElementById("c-doublons").textContent = data.nb_doublons_ecartes;
+  document.getElementById("c-natifs").textContent = data.nb_natifs;
+  document.getElementById("c-scans").textContent = data.nb_scans;
+
+  const blocDoublons = document.getElementById("bloc-doublons");
+  const listeDoublons = document.getElementById("liste-doublons");
+  listeDoublons.innerHTML = "";
+  if (data.doublons && data.doublons.length > 0) {
+    blocDoublons.classList.remove("masque");
+    for (const d of data.doublons) {
+      const li = document.createElement("li");
+      li.textContent = d.fichier + "  →  identique à  " + d.doublon_de;
+      listeDoublons.appendChild(li);
+    }
+  } else {
+    blocDoublons.classList.add("masque");
+  }
+
+  document.getElementById("nb-documents").textContent = data.documents.length;
+  const corps = document.getElementById("corps-documents");
+  corps.innerHTML = "";
+  for (const d of data.documents) {
+    const tr = document.createElement("tr");
+    const sens = d.sens_chemin || "inconnu";
+    tr.innerHTML =
+      "<td>" + escapeHtml(d.fichier) + "</td>" +
+      "<td><span class=\"puce " + escapeHtml(sens) + "\">" + escapeHtml(sens) + "</span></td>" +
+      "<td><span class=\"puce " + escapeHtml(d.type) + "\">" + escapeHtml(d.type) + "</span></td>";
+    corps.appendChild(tr);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// -- écran 2 : détection ---------------------------------------------
+
+document.getElementById("bouton-vers-detection").addEventListener("click", () => {
+  const periode = construirePeriode();
+  if (!periode) {
+    afficherAlerte("alerte-import", "Période invalide — vérifie année / mois / trimestre.");
+    return;
+  }
+  periodeCourante = periode;
+  allerEcran2();
+});
+document.getElementById("bouton-retour-1").addEventListener("click", () => {
+  document.getElementById("ecran-2").classList.add("masque");
+  document.getElementById("ecran-1").classList.remove("masque");
+  document.getElementById("titre-page").textContent = "Campagne TVA — Importation (v0.1)";
+  document.getElementById("sous-titre-page").textContent =
+    "Étape 1 sur 3 · s'exécute uniquement sur cette machine, rien n'est envoyé ailleurs";
+});
+
+async function allerEcran2() {
+  document.getElementById("ecran-1").classList.add("masque");
+  document.getElementById("ecran-2").classList.remove("masque");
+  document.getElementById("titre-page").textContent = "Campagne TVA — Détection (v0.1)";
+  document.getElementById("sous-titre-page").textContent = "Étape 2 sur 3";
+  document.getElementById("corps-detection").innerHTML = "";
+
+  document.getElementById("texte-apercu").textContent =
+    "Lecture des factures en cours (Claude Code lit chaque document non " +
+    "encore extrait — ça peut prendre du temps selon le nombre de PDF)…";
+  let resumeLecture = "";
+  try {
+    const rl = await fetch("/api/lecture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant }),
+    });
+    const dl = await rl.json();
+    if (!rl.ok) {
+      document.getElementById("texte-apercu").textContent =
+        "Erreur de lecture : " + (dl.erreur || "échec de la lecture");
+      return;
+    }
+    if (dl.total > 0) {
+      resumeLecture = "Lecture : " + dl.lues + " lue(s), " + dl.a_verifier +
+        " à vérifier sur " + dl.total + " facture(s). ";
+    }
+    document.getElementById("texte-apercu").textContent = resumeLecture + "Détection en cours…";
+  } catch (e) {
+    document.getElementById("texte-apercu").textContent = "Erreur de lecture : " + e;
+    return;
+  }
+
+  try {
+    const r = await fetch("/api/detection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant, periode: periodeCourante }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      document.getElementById("texte-apercu").textContent =
+        "Erreur : " + (data.erreur || "échec de la détection");
+      return;
+    }
+    afficherDetection(data, resumeLecture);
+  } catch (e) {
+    document.getElementById("texte-apercu").textContent = "Erreur : " + e;
+  }
+}
+
+function afficherDetection(data, resumeLecture) {
+  document.getElementById("texte-apercu").textContent =
+    (resumeLecture || "") +
+    "Détection sur la période " + (data.periode_libelle || data.periode) +
+    " — le prorata sera confirmé à l'étape suivante. " +
+    data.hors_periode.length + " document(s) hors de cette période. " +
+    data.exceptions_bloquantes + " exception(s) bloquante(s).";
+  document.getElementById("nb-lignes-detection").textContent = data.lignes.length;
+  const corps = document.getElementById("corps-detection");
+  corps.innerHTML = "";
+  for (const l of data.lignes) {
+    corps.appendChild(construireLigneDetection(l));
+  }
+}
+
+function construireLigneDetection(l) {
+  const tr = document.createElement("tr");
+  if (l.exception) tr.classList.add("exception");
+
+  tr.appendChild(celluleEditable(l, "date", l.date));
+  tr.appendChild(celluleEditable(l, "tiers", l.tiers));
+  tr.appendChild(celluleEditable(l, "num_facture", l.num_facture));
+  tr.appendChild(celluleChoix(l, "sens", l.sens, ["achat", "vente"], l.sens_origine));
+  tr.appendChild(celluleChoix(l, "regime", l.regime, REGIMES, null));
+
+  const tdBase = document.createElement("td"); tdBase.textContent = formatMontant(l.base);
+  const tdTaux = document.createElement("td"); tdTaux.textContent = formatTaux(l.taux);
+  const tdTva = document.createElement("td"); tdTva.textContent = formatMontant(l.tva);
+  tr.append(tdBase, tdTaux, tdTva);
+
+  const tdException = document.createElement("td");
+  if (l.exception) {
+    tdException.className = "exception-msg";
+    tdException.innerHTML = "<span class=\"puce " + escapeHtml(l.gravite || "bloquant") + "\">" +
+      escapeHtml(l.code || "?") + "</span> " + escapeHtml(l.message || "");
+  }
+  tr.appendChild(tdException);
+
+  tr.addEventListener("click", (ev) => {
+    const tag = ev.target.tagName;
+    if (tag === "INPUT" || tag === "SELECT") return;
+    selectionnerLigne(tr, l);
+  });
+  return tr;
+}
+
+function celluleEditable(l, champ, valeur) {
+  const td = document.createElement("td");
+  if (!l.editable) {
+    td.textContent = valeur ?? "—";
+    return td;
+  }
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = valeur ?? "";
+  input.addEventListener("click", (ev) => ev.stopPropagation());
+  input.addEventListener("change", () => corrigerChamp(l.sha256, champ, input.value, td));
+  td.appendChild(input);
+  return td;
+}
+
+function celluleChoix(l, champ, valeur, options, origine) {
+  const td = document.createElement("td");
+  if (origine) td.title = "Source du sens : " + origine;
+  if (!l.editable) {
+    td.innerHTML += "<span class=\"puce " + escapeHtml(valeur || "inconnu") + "\">" +
+      escapeHtml(valeur || "—") + "</span>";
+    return td;
+  }
+  const select = document.createElement("select");
+  for (const v of options) {
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    if (valeur === v) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.addEventListener("click", (ev) => ev.stopPropagation());
+  select.addEventListener("change", () => corrigerChamp(l.sha256, champ, select.value, td));
+  td.appendChild(select);
+  return td;
+}
+
+async function corrigerChamp(sha, champ, valeur, td) {
+  td.style.opacity = "0.5";
+  try {
+    const r = await fetch("/api/corriger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant, sha, champ, valeur }),
+    });
+    if (!r.ok) {
+      const data = await r.json();
+      alert("Correction refusée : " + (data.erreur || "erreur inconnue"));
+    }
+  } catch (e) {
+    alert("Erreur : " + e);
+  } finally {
+    td.style.opacity = "1";
+  }
+}
+
+function selectionnerLigne(tr, l) {
+  document.querySelectorAll("#corps-detection tr.selectionnee")
+    .forEach(x => x.classList.remove("selectionnee"));
+  tr.classList.add("selectionnee");
+  const iframe = document.getElementById("visionneuse-pdf");
+  const vide = document.getElementById("visionneuse-vide");
+  if (!l.sha256) {
+    iframe.classList.add("masque");
+    vide.classList.remove("masque");
+    vide.textContent = "PDF introuvable pour cette ligne.";
+    return;
+  }
+  iframe.src = "/api/pdf?dossier=" + encodeURIComponent(dossierCourant)
+             + "&sha=" + encodeURIComponent(l.sha256);
+  iframe.classList.remove("masque");
+  vide.classList.add("masque");
+}
+
+function formatMontant(v) {
+  return (v === null || v === undefined) ? "—" : Number(v).toFixed(2);
+}
+function formatTaux(v) {
+  return (v === null || v === undefined) ? "—" : (Number(v) * 100).toFixed(0) + "%";
+}
+
+// -- écran 3 : compilation --------------------------------------------
+
+document.getElementById("bouton-vers-compilation").addEventListener("click", allerEcran3);
+document.getElementById("bouton-retour-2").addEventListener("click", () => {
+  document.getElementById("ecran-3").classList.add("masque");
+  document.getElementById("ecran-2").classList.remove("masque");
+  document.getElementById("titre-page").textContent = "Campagne TVA — Détection (v0.1)";
+  document.getElementById("sous-titre-page").textContent = "Étape 2 sur 3";
+});
+
+async function allerEcran3() {
+  document.getElementById("ecran-2").classList.add("masque");
+  document.getElementById("ecran-3").classList.remove("masque");
+  document.getElementById("titre-page").textContent = "Campagne TVA — Compilation (v0.1)";
+  document.getElementById("sous-titre-page").textContent = "Étape 3 sur 3";
+  document.getElementById("bloc-generation").classList.add("masque");
+  document.getElementById("texte-prorata").textContent = "Calcul du prorata en cours…";
+  document.getElementById("table-calcul-prorata").innerHTML = "";
+  try {
+    const r = await fetch("/api/prorata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant, periode: periodeCourante }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      document.getElementById("texte-prorata").textContent =
+        "Erreur : " + (data.erreur || "échec du calcul");
+      return;
+    }
+    afficherProrata(data);
+  } catch (e) {
+    document.getElementById("texte-prorata").textContent = "Erreur : " + e;
+  }
+}
+
+function afficherProrata(data) {
+  document.getElementById("texte-prorata").textContent =
+    "Calculé sur le chiffre d'affaires de l'année civile (art. 50), période " +
+    (data.periode_libelle || periodeCourante) + ".";
+
+  const lignes = [
+    ["CA total de l'année", formatMontant(data.ca_total)],
+    ["CA ouvrant droit à déduction", formatMontant(data.ca_ouvrant_droit)],
+  ];
+  if (data.autres_periodes) {
+    lignes.push(["Autres périodes déjà déclarées de l'exercice", data.autres_periodes]);
+  }
+  if (data.prorata_brut !== null && data.prorata_brut !== undefined) {
+    lignes.push(["Calcul brut", (data.prorata_brut * 100).toFixed(4) + " %"]);
+  }
+  const table = document.getElementById("table-calcul-prorata");
+  table.innerHTML = "";
+  for (const [libelle, valeur] of lignes) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + escapeHtml(libelle) + "</td><td>" + escapeHtml(String(valeur)) + "</td>";
+    table.appendChild(tr);
+  }
+
+  const champProrata = document.getElementById("champ-prorata");
+  if (data.prorata_propose_pct !== null && data.prorata_propose_pct !== undefined) {
+    champProrata.value = data.prorata_propose_pct;
+    champProrata.placeholder = "";
+  } else {
+    champProrata.value = "";
+    champProrata.placeholder = "Aucune vente sur l'exercice — saisir manuellement";
+  }
+
+  if (data.exceptions_bloquantes) {
+    afficherAlerte("alerte-prorata",
+      data.exceptions_bloquantes + " exception(s) bloquante(s) à l'écran précédent — la " +
+      "génération les exclura des annexes, elle n'est pas bloquée pour autant : le rapport " +
+      "d'exceptions les listera pour que tu tranches avant tout dépôt.");
+  } else {
+    afficherAlerte("alerte-prorata", null);
+  }
+}
+
+document.getElementById("bouton-generer").addEventListener("click", async () => {
+  const brut = document.getElementById("champ-prorata").value.trim().replace(",", ".");
+  if (!/^\d{1,3}(\.\d+)?$/.test(brut) || parseFloat(brut) > 100) {
+    afficherAlerte("alerte-generation", "Prorata invalide (0 à 100).");
+    return;
+  }
+  const bouton = document.getElementById("bouton-generer");
+  bouton.disabled = true;
+  document.getElementById("chargement-generation").classList.remove("masque");
+  afficherAlerte("alerte-generation", null);
+  try {
+    const r = await fetch("/api/generer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant, periode: periodeCourante, prorata: brut }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      afficherAlerte("alerte-generation", data.erreur || "Échec de la génération.");
+      return;
+    }
+    afficherResultatGeneration(data);
+  } catch (e) {
+    afficherAlerte("alerte-generation", "Erreur : " + e);
+  } finally {
+    bouton.disabled = false;
+    document.getElementById("chargement-generation").classList.add("masque");
+  }
+});
+
+function afficherResultatGeneration(data) {
+  document.getElementById("bloc-generation").classList.remove("masque");
+  document.getElementById("g-lignes").textContent = data.lignes;
+  document.getElementById("g-exceptions").textContent = data.exceptions_bloquantes;
+  document.getElementById("g-tva-amont").textContent = formatMontant(data.tva_amont);
+  document.getElementById("g-tva-deductible").textContent = formatMontant(data.tva_deductible);
+
+  const liste = document.getElementById("liste-fichiers");
+  liste.innerHTML = "";
+  document.getElementById("apercu-fichier").classList.add("masque");
+  document.getElementById("apercu-non-disponible").classList.add("masque");
+  document.getElementById("apercu-vide").classList.remove("masque");
+  for (const f of data.fichiers) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = "#";
+    a.textContent = f.libelle + " (" + f.nom + ")";
+    a.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      previsualiserFichier(f);
+    });
+    li.appendChild(a);
+    liste.appendChild(li);
+  }
+
+  document.getElementById("bouton-ouvrir-dossier").onclick = () => {
+    fetch("/api/ouvrir-dossier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant }),
+    });
+  };
+
+  if (data.exceptions_bloquantes) {
+    afficherAlerte("alerte-generation-finale",
+      data.exceptions_bloquantes + " exception(s) bloquante(s) — voir le rapport dans le " +
+      "dossier des annexes avant de déposer quoi que ce soit.");
+  } else {
+    afficherAlerte("alerte-generation-finale", null);
+  }
+}
+
+function previsualiserFichier(f) {
+  const url = "/api/telecharger?dossier=" + encodeURIComponent(dossierCourant)
+            + "&fichier=" + encodeURIComponent(f.nom);
+  const iframe = document.getElementById("apercu-fichier");
+  const vide = document.getElementById("apercu-vide");
+  const nonDispo = document.getElementById("apercu-non-disponible");
+  vide.classList.add("masque");
+  if (f.nom.toLowerCase().endsWith(".xlsx")) {
+    iframe.classList.add("masque");
+    nonDispo.classList.remove("masque");
+    document.getElementById("lien-ouvrir-xlsx").href = url;
+  } else {
+    nonDispo.classList.add("masque");
+    iframe.src = url;
+    iframe.classList.remove("masque");
+  }
+}
+
+document.getElementById("lien-quitter").addEventListener("click", async (ev) => {
+  ev.preventDefault();
+  if (!confirm("Fermer l'application et arrêter le serveur local ?")) return;
+  try {
+    await fetch("/api/quitter", { method: "POST" });
+  } catch (e) {
+    // le serveur s'arrete pendant la reponse : une erreur reseau ici est normale
+  }
+  document.body.innerHTML =
+    "<div style='padding:60px;text-align:center;color:#6b7280;font:14px -apple-system,sans-serif;'>" +
+    "Application fermée — tu peux fermer cet onglet.</div>";
+});
+
+chargerSocietes();
+</script>
+
+</body>
+</html>

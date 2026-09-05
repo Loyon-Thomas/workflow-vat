@@ -234,7 +234,8 @@ def detecter_sens_identite(doc, conf):
 def determiner_sens(doc, conf, regles, rel):
     """Trois sources independantes : chemin, identite des parties, sens declare
     par l'extraction. Toute divergence est bloquante ; l'absence totale aussi.
-    Retourne (sens, detail_pour_exception)."""
+    Retourne (sens, detail) : detail est le motif du rejet si sens est None,
+    ou la liste des sources d'accord (informatif) si sens est resolu."""
     src = {"chemin": detecter_sens_chemin(rel, regles),
            "identite": detecter_sens_identite(doc, conf),
            "extraction": doc.get("sens")}
@@ -246,7 +247,7 @@ def determiner_sens(doc, conf, regles, rel):
     if len(valeurs) > 1:
         return None, ("Divergence de sens : "
                       + ", ".join("%s='%s'" % (k, v) for k, v in sorted(retenues.items())))
-    return valeurs.pop(), None
+    return valeurs.pop(), ", ".join(sorted(retenues))
 
 def resoudre_source(dossier, conf, arg_source):
     """Ordre de priorite : --factures > societe.yaml:source_factures > <dossier>/factures.
@@ -379,6 +380,7 @@ def controler(docs, conf, referentiel, debut, fin, regles_sens=None):
             ex(doc, "C11", "bloquant", detail); bloquant = True
         else:
             doc["sens"] = sens
+            doc["_sens_origine"] = detail
         num = (doc.get("num_facture") or "").strip()
         t = apparier_tiers(doc.get("tiers"), referentiel)
         if not num:
@@ -437,6 +439,7 @@ def controler(docs, conf, referentiel, debut, fin, regles_sens=None):
                             "montant_devise": r2(float(ln["base"])), "taux_change": tc,
                             "base": base, "tva": tva, "ttc": r2(base + tva),
                             "sens": doc.get("sens", "achat"),
+                            "sens_origine": doc.get("_sens_origine"),
                             "regime": doc.get("regime", "achat_lu"),
                             "fichier": doc.get("fichier"), "sha256": doc.get("sha256")})
 
@@ -901,6 +904,7 @@ def etape_annexes(dossier, racine, periode=None, prorata=None, exercice=None,
     out_prov = os.path.abspath(os.path.expanduser(
         sortie or conf.get("dossier_sortie") or os.path.join(dossier, "annexes")))
     ca_total, ca_droit, autres = ca_de_l_annee(out_prov, periode[:4], valides, periode)
+    _, prorata_propose = prorata_art50(ca_droit, ca_total)
     if prorata is None:
         prorata, origine, brut = demander_prorata(conf, ca_total, ca_droit,
                                                   periode[:4], autres)
@@ -921,6 +925,8 @@ def etape_annexes(dossier, racine, periode=None, prorata=None, exercice=None,
     f_xlsx = generer_classeur(os.path.join(out, base_nom + ".xlsx"), conf, per_lib, valides, agr)
     f_exc = rapport_exceptions(os.path.join(out, base_nom + "-EXCEPTIONS.txt"),
                                conf, per_lib, exc, hors, sans_date)
+    f_exc_json = os.path.join(out, base_nom + "-EXCEPTIONS.json")
+    json.dump(exc, open(f_exc_json, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     f_ecdf = rapport_ecdf(os.path.join(out, base_nom + "-CASES-ECDF.txt"),
                           conf, per_lib, agr, nom_profil, profil)
     # instantane machine du declare : socle de la reconciliation annuelle
@@ -931,6 +937,9 @@ def etape_annexes(dossier, racine, periode=None, prorata=None, exercice=None,
                "debut": debut.isoformat(), "fin": fin.isoformat(),
                "genere_le": dt.datetime.now().isoformat(timespec="seconds"),
                "prorata_pct": agr["prorata_pct"], "origine_prorata": agr["origine_prorata"],
+               "ca_annee_total": ca_total, "ca_annee_ouvrant_droit": ca_droit,
+               "autres_periodes_declarees": autres, "prorata_brut": brut,
+               "prorata_propose_pct": (prorata_propose * 100) if prorata_propose is not None else None,
                "formulaire": nom_profil,
                "exceptions_bloquantes": nb_bloq,
                "hors_periode": [{"date": d["date"], "tiers": d.get("tiers"),
@@ -951,7 +960,7 @@ def etape_annexes(dossier, racine, periode=None, prorata=None, exercice=None,
           % (agr["tva_amont"], agr["tva_deductible"], agr["tva_non_deductible"]))
     if agr["non_mappes"]:
         print("  ATTENTION : %d poste(s) sans case eCDF mappee" % len(agr["non_mappes"]))
-    for f in (f_xlsx, f_exc, f_ecdf, f_dec):
+    for f in (f_xlsx, f_exc, f_exc_json, f_ecdf, f_dec):
         print("  -> %s" % os.path.basename(f))
     return f_xlsx
 

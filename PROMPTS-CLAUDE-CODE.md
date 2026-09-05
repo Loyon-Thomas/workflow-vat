@@ -91,67 +91,150 @@ voie le résultat avant de l'utiliser sur un vrai dossier.
 
 ---
 
-## Prompt 2 — La page web locale
+## Prompt 2 — La page web locale, avec historique des productions
 
-À faire **après** avoir utilisé le workflow deux ou trois fois en conversation. Tu sauras alors ce qui te coûte du temps.
+La page ne se contente pas de produire : elle **conserve et rend consultable**
+tout ce qui a été produit. Les instantanés `-DECLARE.json` écrits à chaque
+exécution en sont déjà la matière ; la page les indexe et les présente.
+
+### Étape préalable — enrichir le modèle de données
+
+À faire avant de construire quoi que ce soit d'affichage.
 
 ```
 CONTEXTE
-Même dossier, mêmes scripts, mêmes interdits qu'avant. Ne réécris pas
-src/annexes_tva.py ni src/reconciliation.py : la page les appelle,
-elle ne refait aucun calcul.
+Chaque exécution de src/annexes_tva.py écrit un instantané -DECLARE.json à
+côté des annexes. Ces instantanés doivent devenir un historique consultable
+des productions, pas seulement un sous-produit.
+
+Aujourd'hui deux générations d'une même période coexistent sans que rien
+n'indique laquelle fait foi, et des périodes produites pour tester se
+mélangent aux périodes réelles.
 
 OBJECTIF
-Une page qui s'ouvre dans mon navigateur et qui tourne uniquement sur
-ma machine. Rien n'est publié, rien ne sort de mon Mac. Je dois pouvoir
-la fermer et tout s'arrête.
+Ajoute trois informations à l'instantané, sans casser reconciliation.py qui
+le lit déjà :
 
-Trois écrans, dans cet ordre.
+1. VERSION
+   - un marqueur indiquant si cette génération est la version courante de
+     la période
+   - la date de génération, déjà présente
+   - le nom du fichier qu'elle remplace, s'il y en a un
+   Quand une période est régénérée, l'ancienne version est conservée et
+   perd son marqueur de version courante. Rien n'est écrasé.
 
-ÉCRAN 1 — IMPORTATION
-Je choisis la société et le dossier source des factures.
-La page m'affiche l'inventaire : combien de documents uniques, combien
-de doublons écartés et lesquels, combien de PDF natifs et combien de
-scans. Un tableau liste chaque document avec son nom de fichier et le
-sens détecté depuis le chemin.
+2. DÉPÔT
+   - un statut : brouillon, validé par le client, déposé
+   - la date de dépôt quand le statut est "déposé"
+   - un champ libre optionnel pour une référence d'accusé
+   - la liste des livrables produits pour cette période, avec leur nom de
+     fichier, pour qu'on puisse les rouvrir depuis l'historique
 
-ÉCRAN 2 — DÉTECTION
-Un tableau, une ligne par facture, avec : date, tiers, numéro de
-facture, sens achat ou vente, régime, base, taux, TVA.
-Chaque ligne indique d'où vient le sens : chemin, identité des parties
-ou extraction.
-Les lignes en exception sont visuellement distinctes, avec le code du
-contrôle et le message.
-Quand je clique sur une ligne, le PDF de la facture s'ouvre à côté du
-tableau, pour que je vérifie sans quitter la page.
-Je peux corriger une valeur directement dans le tableau ; la correction
-est écrite dans le JSON d'extraction, pas ailleurs.
+3. NATURE
+   - réelle ou essai, pour que les périodes produites pour tester
+     n'apparaissent pas dans l'historique de production
 
-ÉCRAN 3 — COMPILATION
+Écris aussi une commande qui parcourt les instantanés existants et leur
+ajoute ces champs avec des valeurs par défaut raisonnables, en me montrant
+ce qu'elle compte faire avant de le faire.
+
+CONTRAINTES
+- Les fichiers restent la source de vérité. Si tu proposes une base de
+  données, elle ne peut être qu'un index reconstructible depuis les
+  fichiers, jamais l'original.
+- reconciliation.py doit continuer à fonctionner sans modification
+- Lance les deux jeux d'essai après ta modification et montre-moi que les
+  résultats sont inchangés
+```
+
+### Écran 1 — Accueil portefeuille
+
+```
+Une page qui s'ouvre dans mon navigateur et tourne uniquement sur ma
+machine. Rien n'est publié, rien ne sort de mon Mac. Je la ferme, tout
+s'arrête.
+
+ÉCRAN D'ACCUEIL
+La liste de toutes les sociétés du dossier dossiers/.
+Pour chacune : sa périodicité, et l'état de ses périodes de l'exercice en
+cours sous forme de ligne de temps — janvier, février, mars et ainsi de
+suite pour une mensuelle, T1 à T4 pour une trimestrielle.
+
+Chaque période porte visuellement son état : non produite, brouillon,
+validée client, déposée le tant. Je dois voir d'un coup d'œil ce qui reste
+à traiter sur l'ensemble du portefeuille.
+
+Un clic sur une société ouvre son historique. Un clic sur une période
+ouvre cette période.
+
+Construis cet écran seul. Montre-le-moi. Explique-moi comment je lance la
+page et comment je l'arrête.
+```
+
+### Écran 2 — Historique d'une société
+
+```
+La liste des périodes déclarées, de la plus récente à la plus ancienne.
+Pour chacune : période, statut de dépôt et date, date de génération,
+nombre de lignes, nombre d'exceptions, TVA en amont, TVA déductible,
+prorata appliqué et son origine.
+
+Quand une période a plusieurs versions, elles sont regroupées : la version
+courante est mise en avant, les précédentes accessibles en dépliant.
+Je peux comparer deux versions et voir ce qui a changé entre elles.
+
+Depuis chaque ligne, je peux ouvrir les quatre livrables produits :
+le classeur, le rapport d'exceptions, la correspondance eCDF, l'instantané.
+
+Je peux renseigner le statut de dépôt et sa date directement ici.
+
+Une recherche transversale : taper un nom de fournisseur ou un numéro de
+facture me montre toutes les périodes où il apparaît, avec les montants.
+```
+
+### Écran 3 — Traiter une période
+
+```
+Trois moments, dans l'ordre.
+
+IMPORTATION
+Je choisis le dossier source des factures.
+La page affiche l'inventaire : documents uniques, doublons écartés et
+lesquels, PDF natifs et scans. Un tableau liste chaque document avec son
+nom de fichier et le sens détecté depuis le chemin.
+
+DÉTECTION
+Un tableau, une ligne par facture : date, tiers, numéro, sens, régime,
+base, taux, TVA. Chaque ligne indique d'où vient le sens — chemin,
+identité des parties ou extraction.
+Les lignes en exception sont distinctes, avec le code du contrôle et le
+message.
+Un clic sur une ligne ouvre le PDF de la facture à côté du tableau.
+
+Je peux corriger une valeur directement dans le tableau. Toute correction :
+- est écrite dans le JSON d'extraction, jamais ailleurs
+- conserve la valeur d'origine et la date de correction dans ce même JSON
+- déclenche une nouvelle passe de contrôles sur la ligne corrigée
+Je dois pouvoir voir, plus tard, quelles valeurs ont été corrigées à la
+main et lesquelles viennent de la lecture du document.
+
+COMPILATION
 Je choisis le type de déclaration et la période.
-La page m'affiche le prorata calculé sur le chiffre d'affaires de
-l'année, avec le détail du calcul, et me laisse le remplacer.
-Un bouton lance la génération. Quand c'est fini, la page affiche les
-totaux et me donne un lien vers chacun des quatre fichiers produits.
+La page affiche le prorata calculé sur le chiffre d'affaires de l'année,
+avec le détail du calcul, et me laisse le remplacer.
+Un bouton lance la génération. À la fin, les totaux s'affichent et la
+nouvelle version devient la version courante de la période.
 
 CONTRAINTES
 - Local uniquement, jamais accessible depuis l'extérieur de ma machine
 - Aucun calcul dans la page : tout passe par les scripts existants
 - Aucune écriture dans le dossier client
-- Si un contrôle bloquant échoue, la génération est refusée et la page
-  me dit pourquoi
+- Si un contrôle bloquant échoue, la génération est refusée avec le motif
 
 MÉTHODE
-Construis l'écran 1 seul. Montre-le-moi. On ne passe à l'écran 2 que
-quand le 1 me convient. Explique-moi comment je lance et comment
-j'arrête la page.
+Un écran à la fois. On ne passe au suivant que quand le précédent me
+convient.
 ```
-
-**Le passage qui compte.** « Construis l'écran 1 seul. » Sans cette phrase, tu reçois trois écrans à moitié faits que personne ne peut tester. Avec elle, tu valides à chaque étape et tu gardes la main.
-
-**Le passage qui protège.** « Local uniquement, jamais accessible depuis l'extérieur de ma machine. » Une page web mal configurée est visible depuis le réseau. Avec des factures clients à l'écran, c'est un incident de confidentialité. Cette phrase doit figurer dans le prompt, pas dans ta mémoire.
-
----
 
 ## Les phrases à réutiliser partout
 
