@@ -58,6 +58,23 @@
     margin-bottom: 6px;
     font-size: 13px;
   }
+
+  /* --- fiche societe ------------------------------------------------- */
+  dialog#fenetre-societe {
+    border: 1px solid var(--bordure); border-radius: 10px;
+    padding: 24px; max-width: 560px; width: calc(100% - 48px);
+    background: var(--carte); color: var(--texte);
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  }
+  dialog#fenetre-societe::backdrop { background: rgba(0,0,0,.35); }
+  dialog#fenetre-societe .champ { margin-bottom: 14px; }
+  dialog#fenetre-societe input[type=text], dialog#fenetre-societe select { width: 100%; }
+  /* Les messages d'erreur restent en place tant qu'ils sont vides : la
+     hauteur du formulaire ne bouge pas quand la validation echoue. */
+  .err { color: #b42318; min-height: 0; margin: 4px 0 0; }
+  .err:empty { display: none; }
+  .champ.faux input, .champ.faux select { border-color: #b42318; }
+
   select, input[type=text] {
     width: 100%;
     padding: 8px 10px;
@@ -181,7 +198,11 @@
 
     <div class="champ">
       <label for="select-societe">Société</label>
-      <select id="select-societe"></select>
+      <div class="ligne-dossier">
+        <select id="select-societe"></select>
+        <button id="bouton-ajouter-societe">Ajouter une société…</button>
+      </div>
+      <p id="etat-ecdf-societe" class="discret" style="margin:6px 0 0;"></p>
     </div>
 
     <div class="champ">
@@ -259,6 +280,89 @@
   </section>
 
 </main>
+
+<!-- Fiche societe. Les trois identifiants du bloc <Declarer> du XML eCDF
+     (matricule, RCS, n° de TVA) sont obligatoires : sans eux la declaration
+     n'est pas deposable, et le refus tomberait bien plus tard, apres une
+     campagne entiere. Le n° de TVA sert aussi a reconnaitre la societe sur
+     une facture, donc a trancher achat / vente. -->
+<dialog id="fenetre-societe">
+  <form method="dialog" id="formulaire-societe">
+    <h2 style="margin-top:0;">Nouvelle société</h2>
+    <p class="discret" style="margin-top:-8px;">
+      Les trois identifiants marqués <b>obligatoire</b> sont ceux qu'eCDF
+      exige dans le bloc <code>Declarer</code>. Une société à qui il en
+      manque un ne peut pas être déposée.
+    </p>
+
+    <div id="alerte-societe" class="alerte masque"></div>
+
+    <div class="champ">
+      <label for="f-code">Code interne <span class="discret">— nom du dossier de travail</span></label>
+      <input type="text" id="f-code" placeholder="ACME" autocomplete="off">
+      <p class="discret err" id="e-code"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-denomination">Dénomination sociale</label>
+      <input type="text" id="f-denomination" placeholder="Acme S.à r.l." autocomplete="off">
+      <p class="discret err" id="e-denomination"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-matricule">Matricule national <b>— obligatoire</b></label>
+      <input type="text" id="f-matricule" placeholder="11 ou 13 chiffres" autocomplete="off">
+      <p class="discret err" id="e-matricule"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-rcs">N° RCS <b>— obligatoire</b></label>
+      <input type="text" id="f-rcs" placeholder="B123456 — ou NE si la société n'en a pas" autocomplete="off">
+      <p class="discret err" id="e-rcs"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-numero_tva">N° de TVA <b>— obligatoire</b></label>
+      <input type="text" id="f-numero_tva" placeholder="8 chiffres, sans le préfixe LU — ou NE" autocomplete="off">
+      <p class="discret err" id="e-numero_tva"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-periodicite">Périodicité de déclaration</label>
+      <select id="f-periodicite">
+        <option value="mensuelle">Mensuelle — TVA_DECM</option>
+        <option value="trimestrielle" selected>Trimestrielle — TVA_DECT</option>
+      </select>
+      <p class="discret err" id="e-periodicite"></p>
+    </div>
+
+    <div class="champ">
+      <label for="f-alias">Autres appellations <span class="discret">— séparées par des virgules</span></label>
+      <input type="text" id="f-alias" placeholder="Acme Sarl, Acme S a r l" autocomplete="off">
+      <p class="discret" style="margin:4px 0 0;">
+        Servent à reconnaître la société comme émetteur ou destinataire d'une
+        facture quand le dossier source ne sépare pas achats et ventes. La
+        dénomination est ajoutée d'office ; le n° de TVA reste la clé la plus
+        sûre.
+      </p>
+    </div>
+
+    <div class="champ">
+      <label for="f-source">Dossier des factures <span class="discret">— facultatif, modifiable ensuite</span></label>
+      <div class="ligne-dossier">
+        <input type="text" id="f-source" placeholder="~/Documents/Clients/ACME/Factures" autocomplete="off">
+        <button type="button" id="f-choisir-source">Choisir…</button>
+      </div>
+      <p class="discret err" id="e-source_factures"></p>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="principal" type="button" id="bouton-enregistrer-societe">Enregistrer</button>
+      <button type="button" id="bouton-annuler-societe">Annuler</button>
+      <span id="chargement-societe" class="chargement masque">Enregistrement…</span>
+    </div>
+  </form>
+</dialog>
 
 <div id="ecran-2" class="large masque">
 
@@ -445,7 +549,10 @@ async function chargerSocietes() {
   for (const s of societes) {
     const opt = document.createElement("option");
     opt.value = s.dossier;
-    opt.textContent = s.denomination + " (" + s.code + ")";
+    // Le losange signale une fiche incomplete : autant le savoir ici
+    // plutot qu'au moment du dépôt, après toute une campagne.
+    opt.textContent = (s.pret_ecdf === false ? "◇ " : "")
+                    + s.denomination + " (" + s.code + ")";
     select.appendChild(opt);
   }
   appliquerSocieteChoisie();
@@ -454,10 +561,103 @@ async function chargerSocietes() {
 function appliquerSocieteChoisie() {
   const dossier = document.getElementById("select-societe").value;
   const s = societes.find(x => x.dossier === dossier);
-  if (s) {
-    document.getElementById("champ-factures").value = s.source_factures;
+  const etat = document.getElementById("etat-ecdf-societe");
+  if (!s) { etat.textContent = ""; return; }
+  document.getElementById("champ-factures").value = s.source_factures;
+  if (s.pret_ecdf === false) {
+    etat.textContent = "◇ Fiche incomplète pour un dépôt eCDF — manque : "
+                     + s.manques_ecdf.join(", ")
+                     + ". Les annexes se produisent quand même ; le XML sera refusé.";
+  } else if (s.pret_ecdf === true) {
+    etat.textContent = "✓ Identifiants eCDF complets.";
+  } else {
+    etat.textContent = "";
   }
 }
+
+// ---------------------------------------------------------------------
+// Fiche societe
+// ---------------------------------------------------------------------
+const CHAMPS_SOCIETE = ["code", "denomination", "matricule", "rcs",
+                        "numero_tva", "periodicite"];
+
+function ouvrirFicheSociete() {
+  for (const c of CHAMPS_SOCIETE) {
+    const el = document.getElementById("f-" + c);
+    if (el.tagName === "SELECT") el.value = "trimestrielle";
+    else el.value = "";
+  }
+  document.getElementById("f-alias").value = "";
+  document.getElementById("f-source").value = "";
+  effacerErreursSociete();
+  document.getElementById("fenetre-societe").showModal();
+  document.getElementById("f-code").focus();
+}
+
+function effacerErreursSociete() {
+  afficherAlerte("alerte-societe", null);
+  for (const c of CHAMPS_SOCIETE.concat(["source_factures"])) {
+    const e = document.getElementById("e-" + c);
+    if (e) { e.textContent = ""; e.closest(".champ").classList.remove("faux"); }
+  }
+}
+
+function afficherErreursSociete(erreurs) {
+  effacerErreursSociete();
+  for (const [champ, message] of Object.entries(erreurs)) {
+    // La clé "_" porte une erreur générale, sans champ de rattachement.
+    const e = champ === "_" ? null : document.getElementById("e-" + champ);
+    if (e) {
+      e.textContent = message;
+      e.closest(".champ").classList.add("faux");
+    } else {
+      afficherAlerte("alerte-societe", message);
+    }
+  }
+}
+
+document.getElementById("bouton-ajouter-societe")
+        .addEventListener("click", ouvrirFicheSociete);
+
+document.getElementById("bouton-annuler-societe").addEventListener("click", () => {
+  document.getElementById("fenetre-societe").close();
+});
+
+document.getElementById("f-choisir-source").addEventListener("click", async () => {
+  const r = await fetch("/api/choisir-dossier-factures", { method: "POST" });
+  const data = await r.json();
+  if (data.chemin) document.getElementById("f-source").value = data.chemin;
+});
+
+document.getElementById("bouton-enregistrer-societe").addEventListener("click", async () => {
+  const bouton = document.getElementById("bouton-enregistrer-societe");
+  const chargement = document.getElementById("chargement-societe");
+  bouton.disabled = true;
+  chargement.classList.remove("masque");
+  const corps = {};
+  for (const c of CHAMPS_SOCIETE) corps[c] = document.getElementById("f-" + c).value;
+  corps.alias_societe = document.getElementById("f-alias").value;
+  corps.source_factures = document.getElementById("f-source").value;
+  try {
+    const r = await fetch("/api/societe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corps),
+    });
+    const data = await r.json();
+    if (data.erreurs) { afficherErreursSociete(data.erreurs); return; }
+    document.getElementById("fenetre-societe").close();
+    await chargerSocietes();
+    // La société tout juste créée devient la sélection courante.
+    document.getElementById("select-societe").value = data.dossier;
+    appliquerSocieteChoisie();
+  } catch (e) {
+    afficherAlerte("alerte-societe", "Erreur : " + e);
+  } finally {
+    bouton.disabled = false;
+    chargement.classList.add("masque");
+  }
+});
 
 function afficherAlerte(id, message) {
   const el = document.getElementById(id);
@@ -893,7 +1093,7 @@ function afficherResultatGeneration(data) {
     fetch("/api/ouvrir-dossier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dossier: dossierCourant }),
+      body: JSON.stringify({ dossier: dossierCourant, periode: periodeCourante }),
     });
   };
 
@@ -921,7 +1121,7 @@ async function produireLivrable(cle, url, resume) {
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dossier: dossierCourant }),
+      body: JSON.stringify({ dossier: dossierCourant, periode: periodeCourante }),
     });
     const data = await r.json();
     if (data.erreur) {
@@ -947,7 +1147,8 @@ let derniereGeneration = null;
 
 async function rafraichirListeFichiers() {
   if (!derniereGeneration) return;
-  const r = await fetch("/api/fichiers?dossier=" + encodeURIComponent(dossierCourant));
+  const r = await fetch("/api/fichiers?dossier=" + encodeURIComponent(dossierCourant)
+                      + "&periode=" + encodeURIComponent(periodeCourante));
   const data = await r.json();
   if (data.fichiers) {
     derniereGeneration.fichiers = data.fichiers;
@@ -973,6 +1174,7 @@ document.getElementById("bouton-xml").addEventListener("click", () =>
 
 function previsualiserFichier(f) {
   const url = "/api/telecharger?dossier=" + encodeURIComponent(dossierCourant)
+            + "&periode=" + encodeURIComponent(periodeCourante)
             + "&fichier=" + encodeURIComponent(f.nom);
   const iframe = document.getElementById("apercu-fichier");
   const vide = document.getElementById("apercu-vide");

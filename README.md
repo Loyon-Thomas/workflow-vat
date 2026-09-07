@@ -21,6 +21,37 @@
 > cd ~/CampagneTVA && python3 webapp/serveur.py
 > ```
 
+## Organisation des livrables
+
+Un dossier par société, puis par année, puis par période :
+
+```
+dossiers/
+  ACME/                       créé par « Ajouter une société… »
+    societe.yaml              identité + identifiants eCDF
+    factures/  extraction/    sources et lectures figées
+    2025/
+      Q3/                     livrables de la période
+        …-APPENDICES.xlsx
+        …-EXCEPTIONS.txt / .json
+        …-CASES-ECDF.txt
+        …-DECLARE.json        instantané machine
+        …-REPLIQUE.pdf        réplique client
+        AG0001X…​.xml          fichier eCDF déposable
+        _apercu/              écran 2, avant confirmation du prorata
+      M08/  ANNUAL/           autres périodes de la même année
+```
+
+Les noms de période sont ceux du moteur — `Q3`, `M08`, `ANNUAL` — pour qu'un
+dossier porte le même nom que ce que disent les fichiers qu'il contient.
+
+Le **prorata annuel** relit les périodes déjà déclarées de la même année :
+`ca_de_l_annee` balaie le dossier de la période *et ses dossiers frères*.
+D'où deux règles à ne pas casser : les périodes d'une même année restent
+côte à côte sous l'année, et les dossiers préfixés `_` sont ignorés du
+balayage — c'est pourquoi les aperçus vivent sous `_apercu/`.
+
+
 ## Où vivent les fichiers
 
 | Rôle | Emplacement |

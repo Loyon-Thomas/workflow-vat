@@ -133,17 +133,41 @@ def ca_de_l_annee(dossier_sortie, annee, valides, periode):
     for l in valides:
         ajouter(l)
     autres = 0
-    if os.path.isdir(dossier_sortie):
-        for f in sorted(glob.glob(os.path.join(dossier_sortie, "*-DECLARE.json"))):
-            try:
-                d = json.load(open(f, encoding="utf-8"))
-            except Exception:
+    # Aucun test d'existence du dossier de sortie : il n'existe pas encore
+    # quand cette fonction tourne (il est cree plus bas, apres le calcul du
+    # prorata). Le tester ferait manquer TOUTES les periodes freres lors de
+    # la premiere generation d'une periode, silencieusement. glob.glob sur
+    # un chemin inexistant renvoie [] : le test n'apportait rien.
+    #
+    # Les livrables sont ranges par annee puis par periode (<CODE>/2025/Q3).
+    # Le prorata annuel doit voir les AUTRES periodes de la meme annee : on
+    # balaie donc aussi les dossiers freres. Le premier motif suffisait tant
+    # que tout vivait a plat dans annexes/ ; il est conserve pour cette
+    # disposition-la.
+    motifs = [os.path.join(dossier_sortie, "*-DECLARE.json"),
+              os.path.join(os.path.dirname(dossier_sortie), "*",
+                           "*-DECLARE.json")]
+    trouves = set()
+    for motif in motifs:
+        for f in glob.glob(motif):
+            # Les dossiers prefixes '_' abritent les apercus, qui ne sont
+            # pas des declarations et ne doivent pas peser sur le chiffre
+            # d'affaires. Chemin relatif au dossier parent : un '_' plus
+            # haut dans l'arborescence ne doit rien exclure.
+            rel = os.path.relpath(f, os.path.dirname(dossier_sortie))
+            if any(p.startswith("_") for p in rel.split(os.sep)):
                 continue
-            if not d.get("periode", "").startswith(str(annee)) or d["periode"] == periode:
-                continue
-            autres += 1
-            for l in d.get("lignes", []):
-                ajouter(l)
+            trouves.add(f)
+    for f in sorted(trouves):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except Exception:
+            continue
+        if not d.get("periode", "").startswith(str(annee)) or d["periode"] == periode:
+            continue
+        autres += 1
+        for l in d.get("lignes", []):
+            ajouter(l)
     total = r2(sum(l["base"] for l in lignes))
     droit = r2(sum(l["base"] for l in lignes if l["regime"] in REGIMES_CA_DROIT))
     return total, droit, autres

@@ -4,8 +4,12 @@
 # =====================================================================
 code: EXEMPLE
 denomination: "Exemple S.a r.l."
-numero_tva: "LU00000000"          # a renseigner : fiabilise la detection du sens
-matricule: "0000 0000 000"
+numero_tva: "NE"               # 8 chiffres SANS le prefixe LU, ou NE.
+                               # Fiabilise aussi la detection achat / vente :
+                               # c'est la cle la plus sure pour reconnaitre la
+                               # societe comme emetteur ou destinataire.
+matricule: "0000 0000 000"     # 11 ou 13 chiffres -- MatrNbr du bloc <Declarer>
+rcs: "NE"                      # ex. B123456, ou NE si pas d'immatriculation RCS
 # Alias servant a reconnaitre la societe comme emetteur ou destinataire d'une
 # facture, lorsque le dossier source ne separe pas achats et ventes.
 alias_societe: ["Exemple Sarl", "Exemple"]

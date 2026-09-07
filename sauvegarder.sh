@@ -46,6 +46,15 @@ if ! mount | grep -q "on $HOME/pCloud Drive "; then
     exit 0
 fi
 
+# Figurer dans la table des montages ne suffit pas : le montage FUSE de
+# pCloud peut y rester alors que le volume ne repond plus ("Device not
+# configured"). Seule une lecture reelle le prouve. Sans ce test, rsync
+# part et echoue a mi-parcours, laissant une sauvegarde tronquee.
+if ! ls "$HOME/pCloud Drive" >/dev/null 2>&1; then
+    echo "REPORTE : pCloud est monte mais ne repond pas -- rien n'a ete copie."
+    exit 0
+fi
+
 mkdir -p "$CIBLE" 2>/dev/null
 
 # --delete : miroir strict, les suppressions locales sont repercutees.

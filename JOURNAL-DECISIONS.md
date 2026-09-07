@@ -49,6 +49,42 @@ Trois ajouts purement additifs à `annexes_tva.py`, aucun calcul touché :
 3. détail du prorata dans `-DECLARE.json` (CA total, CA ouvrant droit, brut,
    proposé, autres périodes déclarées).
 
+### Organisation des livrables
+- **`dossiers/<CODE>/<ANNEE>/<PERIODE>/`**, période nommée comme le moteur
+  (`Q3`, `M08`, `ANNUAL`). Décidé le 07/09/2026.
+- Aperçus de l'écran 2 sous `<PERIODE>/_apercu/` : le préfixe `_` les tient
+  hors du balayage du prorata annuel.
+- **Deux diffs validés sur `annexes_tva.py`** (fonction `ca_de_l_annee`,
+  aucun calcul touché) :
+  1. le balayage des instantanés couvre aussi les dossiers frères de
+     l'année — sans quoi, en arborescence imbriquée, chaque période ne se
+     verrait qu'elle-même et le prorata serait faux, silencieusement ;
+  2. suppression du test `os.path.isdir(dossier_sortie)`. La fonction est
+     appelée AVANT que le dossier de sortie soit créé : le test faisait
+     manquer toutes les périodes sœurs à la première génération d'une
+     période. `glob` sur un chemin inexistant renvoie `[]`, le test
+     n'apportait rien.
+- Cinq scénarios vérifiés : à plat, imbriqué dossier présent, imbriqué
+  dossier absent, ancêtre préfixé `_`, aucun antécédent.
+
+### Fiche société
+- La liste déroulante de l'écran 1 est alimentée par `dossiers/*/societe.yaml`.
+  Le bouton « Ajouter une société… » écrit une fiche à partir du gabarit
+  versionné, commentaires conservés.
+- Champs obligatoires = les trois identifiants du bloc `<Declarer>` d'eCDF :
+  matricule (11 ou 13 chiffres), RCS (`B123456` ou `NE`), n° de TVA (8
+  chiffres sans `LU`, ou `NE`).
+- **Les règles de forme ne sont pas réécrites** : le formulaire appelle les
+  normalisateurs d'`ecdf_xml`. Une fiche acceptée ne peut pas produire un
+  XML rejeté.
+- **Vide ≠ NE** : les normalisateurs traduisent une valeur absente en `NE`,
+  ce qui est juste pour le schéma mais faux pour une fiche — un déclarant
+  qui dépose une déclaration de TVA a forcément un numéro de TVA. Seul un
+  `NE` explicite vaut renonciation. Le matricule `0000 0000 000` du gabarit
+  est rejeté de même.
+- Le n° de TVA et les alias alimentent la détection achat / vente (source
+  « identité » du contrôle C11).
+
 ### Interfaces
 - **Tkinter abandonné** : le Tcl/Tk 8.5 fourni par macOS produit des fenêtres
   noires ou vides. Tout passe par **osascript** (dialogues natifs), présent

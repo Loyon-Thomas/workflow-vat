@@ -25,8 +25,10 @@ Arret     : Ctrl+C dans le terminal ou fermeture de ce terminal.
 """
 import errno
 import glob
+import io
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -144,6 +146,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_ouvrir_dossier()
         elif chemin == "/api/quitter":
             self._api_quitter()
+        elif chemin == "/api/societe":
+            self._api_creer_societe()
         else:
             self.send_error(404)
 
@@ -153,7 +157,29 @@ class Handler(BaseHTTPRequestHandler):
             conf = lc.charger_conf(s["chemin"])
             s["source_factures"] = os.path.abspath(os.path.expanduser(
                 conf.get("source_factures") or os.path.join(s["chemin"], "factures")))
+            # Etat de completude vis-a-vis d'eCDF, calcule ici pour que la
+            # liste deroulante puisse signaler une societe non deposable
+            # AVANT qu'on lance une campagne entiere pour rien.
+            s.update(etat_ecdf(conf))
         self._json({"societes": societes})
+
+    def _api_creer_societe(self):
+        corps = self._lire_corps_json()
+        valeurs, erreurs = valider_societe(corps)
+        if erreurs:
+            self._json({"erreurs": erreurs}, code=400)
+            return
+        cible = os.path.join(lc.DOSSIERS, valeurs["code"])
+        if os.path.exists(cible):
+            self._json({"erreurs": {"code": "Un dossier « %s » existe déjà."
+                                     % valeurs["code"]}}, code=400)
+            return
+        try:
+            chemin = ecrire_societe_yaml(cible, valeurs)
+        except Exception as e:
+            self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
+            return
+        self._json({"ok": True, "dossier": valeurs["code"], "fichier": chemin})
 
     def _api_choisir_dossier_factures(self):
         chemin = choisir_dossier_natif("Choisir le dossier des factures")
@@ -338,7 +364,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": "periode ou prorata manquant"}, code=400)
             return
         dossier_abs = societes[dossier_nom]["chemin"]
-        dossier_sortie = dossier_sortie_officiel(dossier_abs)
+        dossier_sortie = dossier_sortie_officiel(dossier_abs, periode)
         cmd = [sys.executable, lc.SCRIPT_ANNEXES, "annexes", "--dossier", dossier_abs,
                "--periode", periode, "--prorata", str(prorata), "--sortie", dossier_sortie]
         r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
@@ -375,7 +401,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": "societe inconnue : %r" % dossier_nom}, code=400)
             return None, None
         dossier_abs = societes[dossier_nom]["chemin"]
-        return dossier_abs, dossier_sortie_officiel(dossier_abs)
+        periode = corps.get("periode")
+        if not periode:
+            self._json({"erreur": "periode manquante"}, code=400)
+            return None, None
+        return dossier_abs, dossier_sortie_officiel(dossier_abs, periode)
 
     def _api_replique(self):
         corps = self._lire_corps_json()
@@ -438,7 +468,11 @@ class Handler(BaseHTTPRequestHandler):
         if dossier_nom not in societes:
             self._json({"erreur": "societe inconnue"}, code=400)
             return
-        sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"])
+        periode = (query.get("periode") or [None])[0]
+        if not periode:
+            self._json({"erreur": "periode manquante"}, code=400)
+            return
+        sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
         self._json({"fichiers": fichiers_produits(sortie)})
 
     def _api_telecharger(self, query):
@@ -448,7 +482,11 @@ class Handler(BaseHTTPRequestHandler):
         if dossier_nom not in societes or not nom or "/" in nom or "\\" in nom:
             self.send_error(400)
             return
-        dossier_sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"])
+        periode = (query.get("periode") or [None])[0]
+        if not periode:
+            self.send_error(400)
+            return
+        dossier_sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
         chemin = os.path.join(dossier_sortie, nom)
         if (not os.path.isfile(chemin)
                 or os.path.dirname(os.path.abspath(chemin)) != dossier_sortie):
@@ -477,7 +515,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": "societe inconnue"}, code=400)
             return
         try:
-            subprocess.run(["open", dossier_sortie_officiel(societe["chemin"])])
+            subprocess.run(["open", dossier_sortie_officiel(
+                societe["chemin"], corps.get("periode"))])
         except Exception:
             pass
         self._json({"ok": True})
@@ -566,17 +605,236 @@ def dernieres_exceptions_json(dossier_sortie):
         return json.load(f)
 
 
-def dossier_sortie_officiel(dossier_abs):
+# =====================================================================
+# Fiche societe : ce qu'eCDF exige pour qu'une declaration soit deposable
+#
+# Le bloc <Declarer> du XML porte exactement trois identifiants, et le
+# schema en fixe la forme :
+#   MatrNbr  11 ou 13 chiffres          (matricule national)
+#   RCSNbr   une lettre + 6 alphanum.   (ex. B123456) ou "NE" si absent
+#   VATNbr   8 chiffres SANS le prefixe LU, ou "NE" si absent
+# Le reste (type de formulaire, annee, periode) se deduit de la campagne.
+#
+# Les regles de forme ne sont PAS reecrites ici : on appelle les memes
+# fonctions que le generateur XML, pour qu'un formulaire accepte ne
+# puisse pas produire un fichier rejete plus tard.
+# =====================================================================
+
+def _normalisateurs():
+    """Renvoie les trois normalisateurs d'ecdf_xml, ou None si le module
+    n'est pas importable (xmlschema absent). La fiche societe reste alors
+    saisissable : c'est la generation du XML qui refusera, plus tard."""
+    try:
+        import ecdf_xml
+        return (ecdf_xml.normaliser_matricule, ecdf_xml.normaliser_rcs,
+                ecdf_xml.normaliser_tva)
+    except Exception:
+        return None
+
+
+CHAMPS_ECDF = (
+    ("matricule", "Matricule", "11 ou 13 chiffres"),
+    ("rcs", "N° RCS", "ex. B123456, ou NE"),
+    ("numero_tva", "N° de TVA", "8 chiffres sans le préfixe LU, ou NE"),
+)
+
+
+def _renseigne(v):
+    """Un champ vide n'est PAS un champ a "NE".
+
+    Les normalisateurs d'ecdf_xml traduisent une valeur absente en "NE",
+    ce qui est juste au regard du schema : "NE" est la facon officielle de
+    dire "cette societe n'a pas de RCS". Mais pour une FICHE, vide veut
+    dire "pas encore saisi" -- et un declarant qui depose une declaration
+    de TVA a forcement un numero de TVA. Confondre les deux ferait passer
+    une fiche incomplete pour deposable, et deposerait "NE" a la place du
+    vrai numero. Seul un "NE" ecrit explicitement vaut renonciation.
+    """
+    return str(v or "").strip() != ""
+
+
+def _matricule_factice(v):
+    """Le gabarit livre '0000 0000 000' : 11 chiffres, donc accepte par le
+    schema, mais ce n'est evidemment pas un matricule."""
+    return set(re.sub(r"\D", "", str(v or ""))) <= {"0"}
+
+
+def etat_ecdf(conf):
+    """Dit si la fiche permet un depot, et ce qui manque le cas echeant."""
+    n = _normalisateurs()
+    if n is None:
+        return {"pret_ecdf": None, "manques_ecdf": []}
+    norm_matr, norm_rcs, norm_tva = n
+    manques = []
+    if (not _renseigne(conf.get("matricule"))
+            or _matricule_factice(conf.get("matricule"))
+            or norm_matr(conf.get("matricule")) is None):
+        manques.append("matricule")
+    if not _renseigne(conf.get("rcs")) or norm_rcs(conf.get("rcs")) is None:
+        manques.append("RCS")
+    if not _renseigne(conf.get("numero_tva")) or norm_tva(conf.get("numero_tva")) is None:
+        manques.append("n° TVA")
+    return {"pret_ecdf": not manques, "manques_ecdf": manques}
+
+
+def valider_societe(corps):
+    """Controle une fiche saisie. Renvoie (valeurs_propres, erreurs)."""
+    erreurs = {}
+    v = {}
+
+    # Le code sert de nom de dossier : on le contraint durement plutot que
+    # d'assainir en silence, pour que le dossier porte bien ce qui a ete
+    # saisi. Pas de separateur de chemin, pas d'accent, pas d'espace.
+    code = str(corps.get("code") or "").strip().upper()
+    if not code:
+        erreurs["code"] = "Obligatoire."
+    elif not re.fullmatch(r"[A-Z0-9][A-Z0-9_-]{1,39}", code):
+        erreurs["code"] = ("2 à 40 caractères : lettres non accentuées, "
+                            "chiffres, tiret ou souligné.")
+    v["code"] = code
+
+    denomination = str(corps.get("denomination") or "").strip()
+    if not denomination:
+        erreurs["denomination"] = "Obligatoire."
+    v["denomination"] = denomination
+
+    n = _normalisateurs()
+    if n is None:
+        # Sans les normalisateurs on ne peut pas garantir la forme ; on
+        # refuse plutot que d'enregistrer une fiche qui semblera valide.
+        erreurs["_"] = ("Contrôles eCDF indisponibles (module ecdf_xml non "
+                        "importable) — fiche non enregistrée.")
+        return v, erreurs
+    norm_matr, norm_rcs, norm_tva = n
+
+    matr = norm_matr(corps.get("matricule"))
+    if not _renseigne(corps.get("matricule")):
+        erreurs["matricule"] = "Obligatoire — 11 ou 13 chiffres."
+    elif _matricule_factice(corps.get("matricule")):
+        erreurs["matricule"] = "Un matricule ne peut pas être uniquement des zéros."
+    elif matr is None:
+        erreurs["matricule"] = "11 ou 13 chiffres attendus."
+    v["matricule"] = matr
+
+    rcs = norm_rcs(corps.get("rcs"))
+    if not _renseigne(corps.get("rcs")):
+        erreurs["rcs"] = ("Obligatoire — saisir NE si la société n'est pas "
+                           "immatriculée au RCS.")
+    elif rcs is None:
+        erreurs["rcs"] = "Format attendu : une lettre puis jusqu'à 6 caractères (ex. B123456), ou NE."
+    v["rcs"] = rcs
+
+    tva = norm_tva(corps.get("numero_tva"))
+    if not _renseigne(corps.get("numero_tva")):
+        erreurs["numero_tva"] = ("Obligatoire — saisir NE seulement si la société "
+                                  "n'a pas de numéro de TVA.")
+    elif tva is None:
+        erreurs["numero_tva"] = "8 chiffres sans le préfixe LU, ou NE."
+    v["numero_tva"] = tva
+
+    periodicite = str(corps.get("periodicite") or "").strip().lower()
+    if periodicite not in ("mensuelle", "trimestrielle"):
+        erreurs["periodicite"] = "Choisir mensuelle ou trimestrielle."
+    v["periodicite"] = periodicite
+
+    # Alias : servent a reconnaitre la societe comme emetteur ou
+    # destinataire d'une facture quand le dossier source ne separe pas
+    # achats et ventes. La denomination est ajoutee d'office.
+    alias = corps.get("alias_societe") or []
+    if isinstance(alias, str):
+        alias = [a.strip() for a in alias.split(",")]
+    alias = [a for a in (str(x).strip() for x in alias) if a]
+    if denomination and denomination not in alias:
+        alias.insert(0, denomination)
+    v["alias_societe"] = alias
+
+    source = str(corps.get("source_factures") or "").strip()
+    v["source_factures"] = source or None
+    if source and not os.path.isdir(os.path.expanduser(source)):
+        erreurs["source_factures"] = "Dossier introuvable : %s" % source
+
+    return v, erreurs
+
+
+def ecrire_societe_yaml(cible, v):
+    """Ecrit dossiers/<CODE>/societe.yaml a partir du gabarit versionne.
+
+    Le gabarit est la reference : on n'en reconstruit pas une copie ici,
+    on y substitue les valeurs saisies. Tout ce que le gabarit documente
+    (exigibilite, prorata, taux admis, onglets de sortie) est ainsi
+    conserve, commentaires compris.
+    """
+    gabarit = os.path.join(REPO, "config", "societe.template.yaml")
+    with io.open(gabarit, encoding="utf-8") as f:
+        texte = f.read()
+
+    def remplacer(cle, valeur, motif=None):
+        nonlocal texte
+        motif = motif or r"^%s:.*$" % re.escape(cle)
+        texte = re.sub(motif, "%s: %s" % (cle, valeur), texte,
+                        count=1, flags=re.MULTILINE)
+
+    remplacer("code", v["code"])
+    remplacer("denomination", json.dumps(v["denomination"], ensure_ascii=False))
+    remplacer("numero_tva", '"%s"' % v["numero_tva"])
+    remplacer("matricule", '"%s"' % v["matricule"])
+    remplacer("alias_societe",
+              "[%s]" % ", ".join(json.dumps(a, ensure_ascii=False)
+                                  for a in v["alias_societe"]))
+    remplacer("source_factures",
+              json.dumps(v["source_factures"], ensure_ascii=False)
+              if v["source_factures"] else "null")
+    remplacer("periodicite", v["periodicite"])
+
+    # Le RCS n'existe pas dans le gabarit historique : le generateur XML le
+    # lit pourtant (conf_societe["rcs"]). On l'insere juste apres le
+    # matricule, la ou il se lit naturellement.
+    if not re.search(r"^rcs:", texte, flags=re.MULTILINE):
+        texte = re.sub(r"^(matricule:.*)$",
+                        r'\1\nrcs: "%s"                     '
+                        r'# RCS du declarant, ou NE' % v["rcs"],
+                        texte, count=1, flags=re.MULTILINE)
+    else:
+        remplacer("rcs", '"%s"' % v["rcs"])
+
+    os.makedirs(cible, exist_ok=True)
+    chemin = os.path.join(cible, "societe.yaml")
+    with io.open(chemin, "w", encoding="utf-8") as f:
+        f.write(texte)
+    return chemin
+
+
+def decouper_periode(periode):
+    """'2025-Q3' -> ('2025', 'Q3'). Le suffixe est celui du moteur (Q3, M08,
+    ANNUAL) : le dossier porte le meme nom que ce que contiennent les
+    fichiers qu'il abrite, rien a traduire."""
+    return periode[:4], periode[5:]
+
+
+def dossier_sortie_officiel(dossier_abs, periode=None):
+    """Racine des livrables : <dossier client>/<annee>/<periode>.
+
+    Sans periode, renvoie la racine historique -- utile pour les appels qui
+    ne ciblent pas une periode precise. Un dossier_sortie force dans
+    societe.yaml reste prioritaire : il designe alors la racine, sous
+    laquelle l'annee et la periode s'ajoutent de la meme facon.
+    """
     conf = lc.charger_conf(dossier_abs)
-    return os.path.abspath(os.path.expanduser(
-        conf.get("dossier_sortie") or os.path.join(dossier_abs, "annexes")))
+    racine = os.path.abspath(os.path.expanduser(
+        conf.get("dossier_sortie") or dossier_abs))
+    if periode is None:
+        return racine
+    annee, code = decouper_periode(periode)
+    return os.path.join(racine, annee, code)
 
 
 def executer_apercu(dossier_abs, periode, prorata="0"):
     """Lance annexes_tva.py annexes en mode apercu : sortie dans apercu/,
     jamais dans annexes/, tant que l'ecran 3 n'a pas confirme le prorata reel.
     Renvoie (declare, exceptions, erreur) -- erreur est None si tout est bon."""
-    apercu = os.path.join(dossier_abs, "apercu")
+    # Sous la periode, prefixe '_' : le prorata annuel ecarte ces dossiers,
+    # un apercu n'etant pas une declaration.
+    apercu = os.path.join(dossier_sortie_officiel(dossier_abs, periode), "_apercu")
     os.makedirs(apercu, exist_ok=True)
     cmd = [sys.executable, lc.SCRIPT_ANNEXES, "annexes", "--dossier", dossier_abs,
            "--periode", periode, "--prorata", str(prorata), "--sortie", apercu]
