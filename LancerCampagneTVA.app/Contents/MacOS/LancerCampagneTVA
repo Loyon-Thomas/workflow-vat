@@ -26,4 +26,9 @@ if [ ! -f "$DIR/lancer_campagne.py" ]; then
 fi
 printf '%s' "$DIR" > "$CACHE"
 cd "$DIR" || exit 1
+# Lance par Finder, le PATH se reduit a /usr/bin:/bin:/usr/sbin:/sbin --
+# Homebrew en est absent, donc pdftotext (poppler) reste introuvable et
+# annexes_tva.py classe alors TOUTES les factures en "scan", meme les PDF
+# natifs. On remet les emplacements Homebrew devant.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 exec /usr/bin/env python3 "$DIR/lancer_campagne.py"

@@ -113,6 +113,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_societes()
         elif chemin == "/api/pdf":
             self._api_pdf(parse_qs(analyse.query))
+        elif chemin == "/api/fichiers":
+            self._api_fichiers(parse_qs(analyse.query))
         elif chemin == "/api/telecharger":
             self._api_telecharger(parse_qs(analyse.query))
         else:
@@ -132,6 +134,10 @@ class Handler(BaseHTTPRequestHandler):
             self._api_corriger()
         elif chemin == "/api/prorata":
             self._api_prorata()
+        elif chemin == "/api/replique":
+            self._api_replique()
+        elif chemin == "/api/xml":
+            self._api_xml()
         elif chemin == "/api/generer":
             self._api_generer()
         elif chemin == "/api/ouvrir-dossier":
@@ -210,10 +216,13 @@ class Handler(BaseHTTPRequestHandler):
         if not a_lire:
             self._json({"total": 0, "lues": 0, "a_verifier": 0, "journal": []})
             return
-        commande_claude = lc.resoudre_commande_claude()
+        # Version silencieuse : depuis un serveur HTTP, un selecteur de
+        # fichier AppleScript surgirait sur le bureau et bloquerait la
+        # requete jusqu'au clic. On renvoie la cause a la page a la place.
+        commande_claude = lc.trouver_commande_claude()
         if not commande_claude:
-            self._json({"erreur": "La commande claude est introuvable -- "
-                                   "lecture impossible."}, code=400)
+            self._json({"erreur": lc.MESSAGE_CLAUDE_ABSENT,
+                         "a_lire": len(a_lire)}, code=400)
             return
         conf = lc.charger_conf(dossier_abs)
         referentiel_txt = lc.referentiel_en_texte(dossier_abs)
@@ -349,6 +358,89 @@ class Handler(BaseHTTPRequestHandler):
             "fichiers": fichiers_produits(dossier_sortie),
         })
 
+    # -- ecran 3 : livrables derives de l'instantane -----------------------
+    #
+    # Les deux endpoints qui suivent ne calculent rien : ils rechargent le
+    # dernier -DECLARE.json produit par le moteur et le mettent en forme.
+    # Les modules correspondants sont importes ici, pas en tete de fichier :
+    # ils tirent reportlab / xmlschema, absents d'une installation Python
+    # nue, et le reste de la page doit continuer de fonctionner sans eux.
+
+    def _societe_et_sortie(self, corps):
+        """Resout dossier -> (chemin absolu, dossier de sortie officiel).
+        Renvoie (None, None) apres avoir deja repondu en erreur."""
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        dossier_nom = corps.get("dossier")
+        if dossier_nom not in societes:
+            self._json({"erreur": "societe inconnue : %r" % dossier_nom}, code=400)
+            return None, None
+        dossier_abs = societes[dossier_nom]["chemin"]
+        return dossier_abs, dossier_sortie_officiel(dossier_abs)
+
+    def _api_replique(self):
+        corps = self._lire_corps_json()
+        dossier_abs, dossier_sortie = self._societe_et_sortie(corps)
+        if dossier_abs is None:
+            return
+        try:
+            import replique_ecdf
+        except ImportError as e:
+            self._json({"erreur": "La replique PDF a besoin de reportlab : "
+                                   "python3 -m pip install --user reportlab "
+                                   "(%s)" % e}, code=400)
+            return
+        try:
+            chemin, infos = replique_ecdf.generer_replique(dossier_abs, dossier_sortie)
+        except FileNotFoundError as e:
+            self._json({"erreur": "Genere d'abord les annexes : %s" % e}, code=400)
+            return
+        except Exception as e:
+            self._json({"erreur": "Replique impossible : %s" % e}, code=500)
+            return
+        infos["fichier"] = os.path.basename(chemin)
+        self._json(infos)
+
+    def _api_xml(self):
+        corps = self._lire_corps_json()
+        dossier_abs, dossier_sortie = self._societe_et_sortie(corps)
+        if dossier_abs is None:
+            return
+        try:
+            import ecdf_xml
+        except ImportError as e:
+            self._json({"erreur": "Le XML eCDF a besoin de xmlschema : "
+                                   "python3 -m pip install --user xmlschema "
+                                   "(%s)" % e}, code=400)
+            return
+        try:
+            chemin, infos = ecdf_xml.generer_xml(dossier_abs, dossier_sortie)
+        except ecdf_xml.ControleEchoue as e:
+            # Regle 4 du depot : une exception bloquante est remontee telle
+            # quelle, jamais contournee. Aucun fichier n'a ete laisse sur le
+            # disque par generer_xml dans ce cas.
+            self._json({"erreur": "Controle eCDF echoue -- aucun fichier "
+                                   "produit.\n%s" % e, "controle": True}, code=400)
+            return
+        except FileNotFoundError as e:
+            self._json({"erreur": "Genere d'abord les annexes : %s" % e}, code=400)
+            return
+        except Exception as e:
+            self._json({"erreur": "XML impossible : %s" % e}, code=500)
+            return
+        infos["fichier"] = os.path.basename(chemin)
+        self._json(infos)
+
+    def _api_fichiers(self, query):
+        """Relit la liste des livrables presents. Sert a rafraichir l'ecran 3
+        apres production d'un livrable derive, sans rejouer la generation."""
+        dossier_nom = (query.get("dossier") or [None])[0]
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        if dossier_nom not in societes:
+            self._json({"erreur": "societe inconnue"}, code=400)
+            return
+        sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"])
+        self._json({"fichiers": fichiers_produits(sortie)})
+
     def _api_telecharger(self, query):
         dossier_nom = (query.get("dossier") or [None])[0]
         nom = (query.get("fichier") or [None])[0]
@@ -363,7 +455,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         types = {".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                 ".txt": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8"}
+                 ".txt": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8",
+                 # Le PDF s'affiche dans le cadre d'apercu de l'ecran 3 ; le
+                 # XML est servi en text/plain pour etre lisible tel quel
+                 # dans le navigateur plutot que rendu comme un arbre.
+                 ".pdf": "application/pdf", ".xml": "text/plain; charset=utf-8"}
         _, ext = os.path.splitext(nom)
         with open(chemin, "rb") as f:
             corps = f.read()
@@ -509,6 +605,17 @@ def fichiers_produits(dossier_sortie):
         nom = base + suffixe
         if os.path.isfile(os.path.join(dossier_sortie, nom)):
             fichiers.append({"nom": nom, "libelle": libelle})
+    # Livrables derives : produits a la demande depuis l'ecran 3, et donc
+    # pas toujours presents. Leur nom ne partage pas la base des quatre
+    # precedents -- la replique porte sa propre date, le XML porte la
+    # reference imposee par eCDF -- d'ou la recherche par motif.
+    for motif, libelle, apercu in (("*-REPLIQUE.pdf", "Réplique client (PDF)", "pdf"),
+                                    ("*.xml", "Fichier eCDF déposable (XML)", "texte")):
+        trouves = sorted(glob.glob(os.path.join(dossier_sortie, motif)),
+                          key=os.path.getmtime, reverse=True)
+        if trouves:
+            fichiers.append({"nom": os.path.basename(trouves[0]),
+                              "libelle": libelle, "apercu": apercu})
     return fichiers
 
 

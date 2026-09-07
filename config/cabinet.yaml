@@ -1,0 +1,24 @@
+# =====================================================================
+# IDENTITE DU CABINET - portee par la replique PDF presentee au client.
+# Ce document ne porte JAMAIS les armoiries ni l'en-tete de l'Etat :
+# c'est un document de travail du cabinet, pas une copie du formulaire
+# administratif.
+# =====================================================================
+nom: "A COMPLETER - nom du cabinet"
+
+# Lignes libres, imprimees sous le nom, dans l'ordre.
+adresse:
+  - "A COMPLETER - rue et numero"
+  - "A COMPLETER - code postal et ville"
+
+# Facultatif : telephone, courriel, site. Une ligne par entree.
+contact:
+  - "A COMPLETER - courriel"
+
+# Facultatif : chemin vers un logo (PNG ou JPG), absolu ou relatif au
+# depot. Laisser null pour n'imprimer que le texte.
+logo: null
+
+# Facultatif : mention ajoutee en pied de chaque page (numero d'agrement,
+# mention professionnelle...). Laisser null si rien.
+mention_pied: null

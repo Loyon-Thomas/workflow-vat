@@ -1,5 +1,54 @@
 # Template — Annexes de déclaration TVA périodique (Luxembourg)
 
+> ## ▶ Lancer la page de campagne
+>
+> **Double-clic sur `webapp/OuvrirCampagneTVA` dans ce dossier.**
+> La page s'ouvre toute seule à cette adresse, toujours la même :
+>
+> ### http://127.0.0.1:8743/
+>
+> *(à mettre en favori dans le navigateur — plus besoin de la chercher)*
+>
+> Pour arrêter : lien **« Fermer l'application »** en bas de la page.
+> Sinon le serveur reste en fond et le lancement suivant se contente de
+> rouvrir l'onglet.
+>
+> **Si le navigateur affiche `ERR_CONNECTION_REFUSED`** : le serveur n'est pas
+> démarré. Relance l'app ; le journal `~/campagne_tva_web.log` dit ce qui
+> s'est passé. En dernier recours, depuis un terminal :
+>
+> ```bash
+> cd ~/CampagneTVA && python3 webapp/serveur.py
+> ```
+
+## Où vivent les fichiers
+
+| Rôle | Emplacement |
+|---|---|
+| **Copie de travail** — la seule qu'on modifie | `~/CampagneTVA` (disque local) |
+| Sauvegarde du **code**, versionnée | GitHub — `Loyon-Thomas/workflow-vat` |
+| Sauvegarde des **données**, miroir quotidien | pCloud — `.../Workflows/VAT/CampagneTVA-SAUVEGARDE` |
+
+Le dépôt a quitté pCloud le 07/09/2026. `pcloudfs` ne conserve pas le bit
+exécutable, impose une autorisation « Accès complet au disque » au binaire
+python3, mélange les formes NFC/NFD des accents et peut se démonter en
+pleine session — quatre défauts sans conséquence pour une *sauvegarde*, mais
+qui rendaient la copie de *travail* fragile. L'ancienne copie est gelée sous
+`_TEMPLATE-ANNEXES-TVA-ANCIEN-20260907`, à supprimer quand la nouvelle
+organisation aura fait ses preuves.
+
+La sauvegarde est en **sens unique** : `~/CampagneTVA` → pCloud, jamais
+l'inverse. Elle tourne chaque jour à 19h00 (agent launchd
+`com.thomas.campagnetva.sauvegarde`), rattrapée au réveil si le Mac dormait,
+et reportée sans dégât si pCloud n'est pas monté.
+
+```bash
+~/CampagneTVA/sauvegarder.sh --essai
+```
+
+montre ce qui serait copié sans rien écrire ; sans `--essai`, la sauvegarde
+part immédiatement. Journal : `~/campagne_tva_sauvegarde.log`.
+
 Automatisation générique, applicable à n'importe quelle société, pour produire
 les annexes d'une déclaration TVA **mensuelle ou trimestrielle** à partir des
 **factures** (la comptabilité n'étant pas tenue dans les temps).

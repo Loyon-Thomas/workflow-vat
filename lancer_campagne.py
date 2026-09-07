@@ -186,27 +186,95 @@ def ensure_dependencies():
     return True
 
 
-def resoudre_commande_claude():
+# Emplacements ou l'executable claude atterrit selon le mode d'installation.
+# Lance par le Finder, le PATH se reduit a /usr/bin:/bin:/usr/sbin:/sbin :
+# shutil.which() seul echoue alors meme quand la commande existe. On elargit
+# donc la recherche a ces emplacements connus avant d'abandonner.
+EMPLACEMENTS_CLAUDE = [
+    "~/.claude/local/claude",       # installateur natif (claude.ai/install.sh)
+    "~/.local/bin/claude",          # installateur natif, variante XDG
+    "/opt/homebrew/bin/claude",     # Homebrew, Apple Silicon
+    "/usr/local/bin/claude",        # Homebrew Intel, ou npm -g par defaut
+    "~/.bun/bin/claude",
+    "~/.volta/bin/claude",
+    "~/.yarn/bin/claude",
+    "~/node_modules/.bin/claude",
+]
+# Motifs a developper : versions de node gerees par nvm/fnm, node_modules
+# globaux dont le chemin depend de la version installee.
+MOTIFS_CLAUDE = [
+    "~/.nvm/versions/node/*/bin/claude",
+    "~/.fnm/node-versions/*/installation/bin/claude",
+    "~/Library/pnpm/claude",
+]
+
+# Message unique, reutilise par le lanceur et par la page web : la cause est
+# la meme des deux cotes, seule la facon de la presenter change.
+MESSAGE_CLAUDE_ABSENT = (
+    "La lecture des factures s'appuie sur Claude Code en ligne de commande. "
+    "Cette commande n'est pas installee sur ce Mac : l'application de bureau "
+    "Claude ne la fournit pas. Pour l'installer, ouvre Terminal et lance "
+    "curl -fsSL https://claude.ai/install.sh | bash, puis relance cette page. "
+    "Le reste de la campagne (inventaire, controles, generation) fonctionne "
+    "sans elle des lors que les factures ont deja ete lues.")
+
+
+def _candidats_claude():
+    """Chemins plausibles, dans l'ordre de preference. Ne teste rien."""
+    for brut in EMPLACEMENTS_CLAUDE:
+        yield os.path.expanduser(brut)
+    for motif in MOTIFS_CLAUDE:
+        # Les versions de node se trient mal en ASCII (10 avant 9) ; l'ordre
+        # exact importe peu, n'importe laquelle fait l'affaire.
+        for trouve in sorted(glob.glob(os.path.expanduser(motif)), reverse=True):
+            yield trouve
+
+
+def trouver_commande_claude():
+    """Localise l'executable claude sans jamais ouvrir de dialogue.
+
+    C'est la version utilisable depuis la page web : un serveur HTTP ne doit
+    pas faire surgir une fenetre AppleScript sur le bureau, ni bloquer le
+    thread qui sert la requete en attendant un clic. Renvoie None si rien
+    n'est trouve -- a l'appelant de dire quoi faire.
+    """
     chemin = shutil.which("claude")
     if chemin:
         return chemin
+    # Chemin memorise lors d'un choix manuel precedent. isfile() seul ne
+    # suffit pas : un PDF choisi par erreur dans le selecteur passe ce test
+    # aussi. On verifie que c'est executable.
     if os.path.isfile(CONFIG_LOCAL):
         try:
             cfg = json.load(open(CONFIG_LOCAL, encoding="utf-8"))
             candidat = cfg.get("claude")
-            # isfile() seul ne suffit pas : un PDF choisi par erreur dans le
-            # selecteur passe ce test aussi. On verifie que c'est executable.
             if candidat and os.path.isfile(candidat) and os.access(candidat, os.X_OK):
                 return candidat
         except Exception:
             pass
-    alerte("La commande 'claude' n'a pas ete trouvee automatiquement "
-           "(cela arrive quand elle a ete installee depuis un terminal). "
-           "Dans la fenetre suivante, choisis precisement l'executable "
-           "claude, pas un autre fichier "
+    for candidat in _candidats_claude():
+        if os.path.isfile(candidat) and os.access(candidat, os.X_OK):
+            return candidat
+    return None
+
+
+def resoudre_commande_claude():
+    """Version interactive, pour le lanceur double-clic uniquement.
+
+    Retombe sur un selecteur de fichier quand la recherche automatique
+    echoue. La page web appelle trouver_commande_claude() a la place.
+    """
+    chemin = trouver_commande_claude()
+    if chemin:
+        return chemin
+    alerte(MESSAGE_CLAUDE_ABSENT + " Si elle est deja installee a un endroit "
+           "inhabituel, choisis l'executable claude dans la fenetre suivante "
            "(dans Terminal : which claude pour le retrouver).")
     chemin = choisir_fichier("Choisir l'executable claude")
     if not chemin:
+        return None
+    if not (os.path.isfile(chemin) and os.access(chemin, os.X_OK)):
+        alerte("Ce fichier n'est pas un executable : %s" % chemin, critique=True)
         return None
     json.dump({"claude": chemin}, open(CONFIG_LOCAL, "w", encoding="utf-8"))
     return chemin

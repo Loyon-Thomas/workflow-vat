@@ -236,6 +236,107 @@ Un écran à la fois. On ne passe au suivant que quand le précédent me
 convient.
 ```
 
+### Écran 4 — Le formulaire eCDF rempli
+
+**À lire avant de prompter.** Les trois formulaires officiels archivés dans
+`formulaires-officiels/` sont des PDF **statiques** : vérification faite avec
+`pypdf`, ils ne contiennent **aucun champ de formulaire** (0 champ sur les
+13 pages de l'annuel, 0 sur les 5 pages du mensuel et du trimestriel). On ne
+peut donc pas les remplir par leurs champs. Trois voies restent ouvertes, et
+le prompt demande à Claude Code de trancher avant de construire.
+
+```
+CONTEXTE
+config/mapping_ecdf.yaml donne, pour chaque poste, le numéro de case du
+formulaire officiel et le libellé. Le rapport -CASES-ECDF.txt produit déjà
+la correspondance en texte brut.
+Les PDF officiels de formulaires-officiels/ sont statiques : aucun champ de
+formulaire, vérifié avec pypdf.
+
+OBJECTIF
+Un écran qui me montre le formulaire eCDF de la période, rempli avec les
+montants calculés, prêt à être recopié dans le portail ou vérifié.
+
+POINT À TRANCHER AVANT DE CONSTRUIRE
+Trois approches. Analyse-les, chiffre l'effort, et recommande-m'en une.
+Ne construis rien avant que j'aie choisi.
+
+a) Superposition sur le PDF officiel
+   Écrire les montants aux coordonnées de chaque case, par-dessus le PDF
+   d'origine. Résultat visuellement identique au formulaire officiel.
+   Dis-moi combien de cases il faut relever pour le mensuel et pour
+   l'annuel, et ce qui se passe quand l'administration change le
+   formulaire au millésime suivant.
+
+b) Réplique du formulaire
+   Reconstruire la mise en page, avec les numéros de case et les montants.
+   Dis-moi ce que ça coûte à maintenir et en quoi ça diffère du a).
+
+c) Bordereau de report
+   Un document propre, non mimétique : par section, le numéro de case, le
+   libellé officiel et le montant, dans l'ordre du formulaire. À recopier
+   case par case dans eCDF.
+   C'est une version soignée de ce que produit déjà -CASES-ECDF.txt.
+
+CE QUE L'ÉCRAN DOIT FAIRE, quelle que soit l'approche retenue
+- Afficher le formulaire rempli à l'écran, dans une fenêtre de
+  visualisation, comme l'écran 3 affiche les factures
+- Un bouton pour télécharger le formulaire rempli en PDF
+- Chaque montant renvoie à son origine : en cliquant dessus, je vois les
+  lignes de l'annexe qui le composent
+- Les postes sans case mappée apparaissent séparément, jamais fondus dans
+  un total
+- Le numéro de version du profil eCDF utilisé et son statut figurent sur
+  le document
+
+CONTRAINTE NON NÉGOCIABLE
+Tant que la période n'a pas le statut "déposé", le document produit porte
+un filigrane BROUILLON — NON DÉPOSÉ, visible et non supprimable depuis
+l'interface. Un formulaire de préparation ne doit jamais pouvoir être
+confondu avec une déclaration déposée.
+
+Aucun dépôt automatique vers eCDF. Le dépôt reste un geste manuel.
+```
+
+### Écran 5 — La liasse complète
+
+```
+OBJECTIF
+Un écran qui assemble, pour une période donnée, le dossier complet :
+le formulaire eCDF rempli en tête, puis les annexes qui le justifient.
+
+CONTENU DE LA LIASSE, dans cet ordre
+1. Le formulaire eCDF rempli de l'écran 4
+2. Détail du chiffre d'affaires
+3. Détail des achats
+4. Détail des opérations à autoliquider
+5. Droit à déduction
+6. Le rapport d'exceptions, s'il en reste
+
+Une page de garde en tête : société, matricule, période, date de
+production, statut, et la liste de ce que contient la liasse.
+
+CE QUE L'ÉCRAN DOIT FAIRE
+- Afficher la liasse dans une fenêtre de visualisation, feuilletable,
+  comme l'écran 3 affiche les factures
+- Un bouton pour télécharger la liasse assemblée en un seul PDF
+- Des boutons pour télécharger chaque livrable séparément : le classeur
+  Excel, le rapport d'exceptions, la correspondance eCDF, l'instantané
+- Depuis l'historique de l'écran 2, je dois pouvoir rouvrir la liasse
+  d'une période déjà produite, y compris une version qui n'est plus la
+  version courante
+
+CONTRAINTES
+- Même filigrane BROUILLON — NON DÉPOSÉ tant que le statut ne l'est pas
+- La liasse est reconstruite depuis les fichiers de la période, jamais
+  recalculée : deux assemblages de la même version donnent le même PDF
+- Aucun envoi, aucun partage, aucune publication depuis la page
+
+MÉTHODE
+Construis l'écran 4 d'abord, dans l'approche que j'aurai choisie.
+L'écran 5 ne se construit qu'une fois le 4 validé.
+```
+
 ## Les phrases à réutiliser partout
 
 À garder sous la main. Elles s'ajoutent à n'importe quelle demande.
@@ -258,3 +359,114 @@ convient.
 3. Prompt 2, la page web — seulement si la revue des exceptions est ce qui te coûte le plus
 
 Sauter l'étape 1 est la seule vraie erreur possible ici : tu ferais construire des écrans avant de savoir lesquels te servent.
+
+---
+
+## Prompt écran 4 révisé — Réplique PDF client + XML de dépôt
+
+Arbitrage rendu : **approche b, la réplique**, pour la présentation au client,
+**plus** un fichier XML téléchargeable pour le dépôt eCDF.
+
+```
+CONTEXTE
+config/mapping_ecdf.yaml donne, pour chaque poste, le numéro de case et le
+libellé officiel, avec deux profils vérifiés : TVA_DECA_2025 pour l'annuelle,
+TVA_DECM_2025 pour le mensuel et le trimestriel.
+Les PDF de formulaires-officiels/ sont statiques : aucun champ remplissable,
+vérifié avec pypdf. Ils servent de référence de mise en page, pas de support.
+
+OBJECTIF A — RÉPLIQUE PDF POUR PRÉSENTATION CLIENT
+Un document PDF qui reprend la structure du formulaire, section par section,
+avec pour chaque poste : le numéro de case, le libellé officiel, le montant.
+Destiné à être envoyé au client pour accord avant dépôt.
+
+Exigences de fond :
+- Suivre l'ordre et le découpage du formulaire officiel : I chiffre
+  d'affaires, II taxe due, III taxe déductible, IV solde
+- Les cases sans montant sont affichées vides, pas omises : le client doit
+  voir que rien n'a été oublié
+- Les postes sans case mappée figurent dans une section distincte, avec la
+  ventilation attendue quand elle est connue
+- Une page de garde : société, matricule, période, date de production,
+  prorata appliqué et son origine, profil eCDF utilisé et son statut
+- Chaque section porte son total, et le solde final est mis en évidence
+
+Exigences de forme, à respecter strictement :
+- Le document porte l'identité de mon cabinet, jamais les armoiries ni
+  l'en-tête du Gouvernement luxembourgeois. C'est un document de travail
+  qui présente le contenu de la déclaration, pas une copie du formulaire
+  administratif.
+- Une mention en tête : "Document de préparation — reprend le contenu de la
+  déclaration à déposer. N'a pas valeur de déclaration officielle."
+- Tant que la période n'a pas le statut "déposé", filigrane
+  BROUILLON — NON DÉPOSÉ, non supprimable depuis l'interface
+
+OBJECTIF B — FICHIER XML POUR DÉPÔT eCDF
+Un fichier XML téléchargeable, conforme au format eCDF, à importer dans le
+portail.
+
+Ce que la documentation officielle établit, et que tu dois respecter :
+- Élément racine <eCDFDeclarations>, namespace http://www.ctie.etat.lu/2011/ecdf
+- En-tête : <FileReference> au format 000000Xaaaammjj Thhmmss NN,
+  <eCDFFileVersion>2.0</eCDFFileVersion>, <Interface>, puis <Agent> avec
+  <MatrNbr>, <RCSNbr>, <VATNbr> — "NE" quand la donnée n'existe pas
+- <Declarations> > <Declarer> (MatrNbr, RCSNbr, VATNbr) > <Declaration>
+- <Declaration> porte les attributs type, model et language
+- Enfants : <Year>, <Period>, <FormData>
+- <Period> : 1 pour l'annuel, 1 à 12 pour le mensuel, 1 à 4 pour le trimestriel
+- Dans <FormData> : <NumericField id="..."> pour les montants,
+  <TextField id="..."> pour texte et dates, <Choice id="...">0 ou 1</Choice>
+  pour les cases à cocher
+- SÉPARATEUR DÉCIMAL : LA VIRGULE. Deux décimales au maximum. Le point est
+  refusé. Le moteur produit des flottants Python : la conversion doit être
+  explicite et testée.
+
+Ce que tu dois aller chercher toi-même avant d'écrire quoi que ce soit :
+- Le schéma XSD officiel, dans la zone développeurs eCDF, menu
+  Developers / Documentation
+- La valeur exacte de l'attribut type pour la déclaration mensuelle et
+  trimestrielle. La documentation cite TVA_DECA pour l'annuelle ; ne
+  suppose pas la valeur pour les autres, vérifie-la.
+- La valeur attendue de l'attribut model, et celle d'Interface
+
+Contrôles obligatoires avant qu'un XML soit proposé au téléchargement :
+1. Validation contre le XSD officiel. Un XML non validé n'est pas proposé.
+2. Contrôle de cohérence : les montants relus depuis le XML produit sont
+   recomparés à ceux de l'annexe. Tout écart bloque.
+3. Le fichier est nommé de façon à identifier société, période et version.
+
+FENÊTRE D'AFFICHAGE ET TÉLÉCHARGEMENTS
+Comme l'écran 3 : une zone de visualisation où je vois la réplique PDF
+feuilletable, et à côté le XML en clair, indenté et lisible.
+Chaque montant de la réplique est cliquable et me montre les lignes
+d'annexe qui le composent.
+Des boutons : télécharger la réplique PDF, télécharger le XML, et les
+quatre livrables déjà produits.
+
+CONTRAINTES GÉNÉRALES
+- Aucun dépôt automatique vers eCDF, aucun envoi. Le dépôt reste manuel.
+- Aucun calcul dans la page : les montants viennent des scripts existants
+- Local uniquement, jamais accessible depuis l'extérieur de ma machine
+
+MÉTHODE
+Commence par le point de vérification : va chercher le XSD et les valeurs
+d'attributs, et dis-moi ce que tu as trouvé et ce que tu n'as pas trouvé.
+Ne construis rien avant.
+Ensuite la réplique PDF seule, que je valide.
+Ensuite le XML, avec sa validation XSD.
+```
+
+### Pourquoi ce prompt est construit ainsi
+
+**Le point dur n'est pas le PDF, c'est le XML.** Un XML mal formé est rejeté
+au dépôt — désagrément sans conséquence. Un XML bien formé dont les montants
+sont dans les mauvaises cases est **accepté**, et devient une déclaration
+fausse. D'où les deux contrôles imposés : validation contre le schéma
+officiel, et recomparaison des montants relus depuis le fichier produit.
+
+**Le séparateur décimal est le piège classique.** Le format eCDF exige la
+virgule ; Python produit des points. Un `str(60.01)` donne `60.01`, refusé.
+
+**Trois valeurs restent à vérifier** et le prompt interdit de les supposer :
+l'attribut `type` pour le mensuel et le trimestriel, l'attribut `model`, et
+`Interface`. La documentation ne cite explicitement que `TVA_DECA`.

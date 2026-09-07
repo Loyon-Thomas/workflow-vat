@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+  SCHEMA RECONSTRUIT - CE N'EST PAS LE XSD OFFICIEL eCDF.
+
+  Le XSD officiel n'est telechargeable que depuis l'espace developpeurs
+  authentifie du CTIE (menu Developers / Documentation). Ce fichier a ete
+  reconstruit a partir de la documentation publique
+  "eCDF_file_v2.0-XML_documentation-01-EN.pdf" (CTIE, 24/11/2022) et verifie
+  contre le fichier d'exemple officiel "eCDF_XML_file_example-FR.pdf".
+
+  CE QU'IL ATTRAPE : structure et imbrication, elements obligatoires absents,
+  elements vides (interdits), separateur decimal autre que la virgule, plus de
+  deux decimales, Period hors bornes, format de FileReference, Choice autre que
+  0/1, longueurs de MatrNbr / RCSNbr / VATNbr, type de declaration inconnu.
+
+  CE QU'IL N'ATTRAPE PAS : la validite d'un numero de case pour un formulaire
+  et une annee donnes, la valeur correcte de l'attribut model, et les regles
+  de coherence metier du formulaire (076 = 046 + 056 + ...). Tout cela vit
+  dans les "regles de validation" par formulaire, cote espace developpeurs.
+
+  PORTEE : declarations TVA uniquement. Les elements propres au depot des
+  comptes annuels (DeclarationGroup, MappingTable, TargetForm, PCNAccount)
+  ne sont volontairement pas couverts.
+
+  Un XML valide contre ce schema reste donc a confirmer par le portail eCDF
+  lui-meme, qui fait sa propre validation a l'import.
+  ============================================================================
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://www.ctie.etat.lu/2011/ecdf"
+           targetNamespace="http://www.ctie.etat.lu/2011/ecdf"
+           elementFormDefault="qualified">
+
+  <!-- ===================== types simples ===================== -->
+
+  <!-- 000000X aaaammjj T hhmmss NN : 24 caracteres -->
+  <xs:simpleType name="tFileReference">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9A-Za-z]{6}X[0-9]{8}T[0-9]{6}[0-9]{2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tFileVersion">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="2.0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Identifiant attribue par le CTIE. La documentation n'en fixe pas la
+       longueur ; l'exemple utilise 5 caracteres. Volontairement large pour ne
+       pas rejeter a tort un identifiant reel. -->
+  <xs:simpleType name="tInterface">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="20"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tMatrNbr">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{11}|[0-9]{13}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- "NE" quand la societe n'a pas de numero RCS. La regle "la premiere
+       lettre ne peut etre suivie d'espaces ou de zeros" est verifiee cote
+       Python : l'exprimer ici rejetterait des cas limites a tort. -->
+  <xs:simpleType name="tRCSNbr">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="NE|[A-Z][A-Za-z0-9]{0,6}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tVATNbr">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="NE|[0-9]{8}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tDeclarationType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="CA_BILAN"/>
+      <xs:enumeration value="CA_BILANABR"/>
+      <xs:enumeration value="CA_BILANSOPARFI"/>
+      <xs:enumeration value="CA_COMPP"/>
+      <xs:enumeration value="CA_COMPPABR"/>
+      <xs:enumeration value="CA_COMPPSOPARFI"/>
+      <xs:enumeration value="CA_PLANCOMPTA"/>
+      <xs:enumeration value="TVA_DECM"/>
+      <xs:enumeration value="TVA_DECT"/>
+      <xs:enumeration value="TVA_DECA"/>
+      <xs:enumeration value="TVA_DECAS"/>
+      <xs:enumeration value="TVA_LICM"/>
+      <xs:enumeration value="TVA_LICT"/>
+      <xs:enumeration value="TVA_PSIM"/>
+      <xs:enumeration value="TVA_PSIT"/>
+      <xs:enumeration value="AN_TABACAM"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tModel">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9A-Za-z]{1,10}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tLanguage">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="FR"/>
+      <xs:enumeration value="DE"/>
+      <xs:enumeration value="EN"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tYear">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{4}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- 1 (annuel), 1 a 12 (mensuel), 1 a 4 (trimestriel). La borne propre au
+       type de declaration est verifiee cote Python. -->
+  <xs:simpleType name="tPeriod">
+    <xs:restriction base="xs:integer">
+      <xs:minInclusive value="1"/>
+      <xs:maxInclusive value="12"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- LE point central : virgule uniquement, deux decimales au maximum,
+       aucun separateur de milliers, pas d'espace apres le signe negatif. -->
+  <xs:simpleType name="tNumeric">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="-?[0-9]+(,[0-9]{1,2})?"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tText">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="1800"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tChoice">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="0"/>
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="tFieldId">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="10"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ===================== types complexes ===================== -->
+
+  <xs:complexType name="tNumericField">
+    <xs:simpleContent>
+      <xs:extension base="tNumeric">
+        <xs:attribute name="id" type="tFieldId" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="tTextField">
+    <xs:simpleContent>
+      <xs:extension base="tText">
+        <xs:attribute name="id" type="tFieldId" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="tChoiceField">
+    <xs:simpleContent>
+      <xs:extension base="tChoice">
+        <xs:attribute name="id" type="tFieldId" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="tLine">
+    <xs:choice maxOccurs="unbounded">
+      <xs:element name="TextField" type="tTextField"/>
+      <xs:element name="NumericField" type="tNumericField"/>
+      <xs:element name="Choice" type="tChoiceField"/>
+    </xs:choice>
+    <xs:attribute name="num" type="xs:integer" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="tTable">
+    <xs:sequence>
+      <xs:element name="Line" type="tLine" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Les Table, quand il y en a, sont toujours en fin de FormData. -->
+  <xs:complexType name="tFormData">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="TextField" type="tTextField"/>
+        <xs:element name="NumericField" type="tNumericField"/>
+        <xs:element name="Choice" type="tChoiceField"/>
+      </xs:choice>
+      <xs:element name="Table" type="tTable" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tDeclaration">
+    <xs:sequence>
+      <xs:element name="Year" type="tYear"/>
+      <xs:element name="Period" type="tPeriod"/>
+      <xs:element name="FormData" type="tFormData"/>
+    </xs:sequence>
+    <xs:attribute name="type" type="tDeclarationType" use="required"/>
+    <xs:attribute name="model" type="tModel" use="required"/>
+    <xs:attribute name="language" type="tLanguage" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="tIdentifiants">
+    <xs:sequence>
+      <xs:element name="MatrNbr" type="tMatrNbr"/>
+      <xs:element name="RCSNbr" type="tRCSNbr"/>
+      <xs:element name="VATNbr" type="tVATNbr"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tDeclarer">
+    <xs:sequence>
+      <xs:element name="MatrNbr" type="tMatrNbr"/>
+      <xs:element name="RCSNbr" type="tRCSNbr"/>
+      <xs:element name="VATNbr" type="tVATNbr"/>
+      <xs:element name="Declaration" type="tDeclaration" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tDeclarations">
+    <xs:sequence>
+      <xs:element name="Declarer" type="tDeclarer" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ===================== racine ===================== -->
+
+  <xs:element name="eCDFDeclarations">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="FileReference" type="tFileReference"/>
+        <xs:element name="eCDFFileVersion" type="tFileVersion"/>
+        <xs:element name="Interface" type="tInterface"/>
+        <xs:element name="Agent" type="tIdentifiants"/>
+        <xs:element name="Declarations" type="tDeclarations"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

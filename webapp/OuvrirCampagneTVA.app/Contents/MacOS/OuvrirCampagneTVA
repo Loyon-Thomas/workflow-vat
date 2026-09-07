@@ -41,5 +41,39 @@ printf '%s' "$DIR" > "$CACHE"
 echo "DIR retenu : $DIR"
 cd "$DIR" || { echo "ECHEC : cd '$DIR'"; exit 1; }
 echo "Lancement de python3..."
-exec /usr/bin/env PYTHONUNBUFFERED=1 python3 "$DIR/webapp/serveur.py"
+# Lance par Finder, le PATH se reduit a /usr/bin:/bin:/usr/sbin:/sbin --
+# Homebrew en est absent, donc pdftotext (poppler) reste introuvable et
+# annexes_tva.py classe alors TOUTES les factures en "scan", meme les PDF
+# natifs. On remet les emplacements Homebrew devant.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+echo "PATH corrige : $PATH"
+
+# --- Verification "Acces complet au disque" ---------------------------
+#
+# macOS applique TCC au binaire REELLEMENT execute, pas au bundle .app :
+# ce script se remplace par python3 via exec, donc c'est python3 qui doit
+# figurer dans Reglages > Confidentialite > Acces complet au disque pour
+# lire le depot sur pCloud. Sans ca, python3 sort en "Operation not
+# permitted" -- l'app se ferme aussitot, sans fenetre, et le seul indice
+# est ce journal. On teste donc la lecture AVANT d'exec, et on nomme le
+# binaire exact a autoriser (l'entree de PATH est souvent un lien
+# symbolique ; le panneau des Reglages, lui, veut la cible reelle).
+PY="$(command -v python3)"
+echo "python3 retenu : $PY"
+if ! "$PY" -c "open(__import__('sys').argv[1]).read(1)" "$DIR/webapp/serveur.py" 2>/dev/null; then
+    REEL="$("$PY" -c 'import sys;print(sys.executable)' 2>/dev/null || echo "$PY")"
+    echo "ECHEC : $REEL ne peut pas lire le depot (TCC)"
+    osascript <<OSA
+display alert "Accès au disque refusé" message "python3 n'a pas le droit de lire le dossier du dépôt (il est sur pCloud).
+
+Ouvre Réglages Système > Confidentialité et sécurité > Accès complet au disque, ajoute ce binaire avec le bouton +, puis active-le :
+
+$REEL
+
+Dans la fenêtre de choix, fais Cmd+Maj+G et colle ce chemin. Relance ensuite l'application." as critical
+OSA
+    exit 1
+fi
+echo "Lecture du depot OK -- demarrage"
+exec /usr/bin/env PYTHONUNBUFFERED=1 "$PY" "$DIR/webapp/serveur.py"
 } >> "$LOG" 2>&1

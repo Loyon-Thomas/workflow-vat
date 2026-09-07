@@ -348,6 +348,24 @@
       <div class="compteur"><div class="valeur" id="g-tva-deductible">–</div><div class="label">TVA déductible</div></div>
     </div>
 
+    <div class="carte" style="margin: 18px 0;">
+      <h2>Livrables dérivés</h2>
+      <p class="discret" style="margin-top:-8px;">
+        Produits à partir de l'instantané machine, sans aucun recalcul.
+        Aucun dépôt automatique : le transfert vers eCDF reste manuel.
+      </p>
+
+      <button id="bouton-replique">Réplique PDF pour le client</button>
+      <span id="chargement-replique" class="chargement masque">Production en cours…</span>
+      <div id="alerte-replique" class="alerte masque"></div>
+      <p id="info-replique" class="discret masque"></p>
+
+      <button id="bouton-xml" style="margin-top: 12px;">Fichier eCDF déposable (XML)</button>
+      <span id="chargement-xml" class="chargement masque">Contrôles en cours…</span>
+      <div id="alerte-xml" class="alerte masque"></div>
+      <p id="info-xml" class="discret masque"></p>
+    </div>
+
     <div class="deux-colonnes">
       <div class="colonne-table">
         <h2>Fichiers produits</h2>
@@ -841,19 +859,10 @@ document.getElementById("bouton-generer").addEventListener("click", async () => 
   }
 });
 
-function afficherResultatGeneration(data) {
-  document.getElementById("bloc-generation").classList.remove("masque");
-  document.getElementById("g-lignes").textContent = data.lignes;
-  document.getElementById("g-exceptions").textContent = data.exceptions_bloquantes;
-  document.getElementById("g-tva-amont").textContent = formatMontant(data.tva_amont);
-  document.getElementById("g-tva-deductible").textContent = formatMontant(data.tva_deductible);
-
+function remplirListeFichiers(fichiers) {
   const liste = document.getElementById("liste-fichiers");
   liste.innerHTML = "";
-  document.getElementById("apercu-fichier").classList.add("masque");
-  document.getElementById("apercu-non-disponible").classList.add("masque");
-  document.getElementById("apercu-vide").classList.remove("masque");
-  for (const f of data.fichiers) {
+  for (const f of fichiers) {
     const li = document.createElement("li");
     const a = document.createElement("a");
     a.href = "#";
@@ -865,6 +874,20 @@ function afficherResultatGeneration(data) {
     li.appendChild(a);
     liste.appendChild(li);
   }
+}
+
+function afficherResultatGeneration(data) {
+  document.getElementById("bloc-generation").classList.remove("masque");
+  document.getElementById("g-lignes").textContent = data.lignes;
+  document.getElementById("g-exceptions").textContent = data.exceptions_bloquantes;
+  document.getElementById("g-tva-amont").textContent = formatMontant(data.tva_amont);
+  document.getElementById("g-tva-deductible").textContent = formatMontant(data.tva_deductible);
+
+  derniereGeneration = data;
+  document.getElementById("apercu-fichier").classList.add("masque");
+  document.getElementById("apercu-non-disponible").classList.add("masque");
+  document.getElementById("apercu-vide").classList.remove("masque");
+  remplirListeFichiers(data.fichiers);
 
   document.getElementById("bouton-ouvrir-dossier").onclick = () => {
     fetch("/api/ouvrir-dossier", {
@@ -882,6 +905,71 @@ function afficherResultatGeneration(data) {
     afficherAlerte("alerte-generation-finale", null);
   }
 }
+
+// Les deux livrables derives partagent exactement la meme mecanique :
+// appel POST, message d'erreur affiche tel quel s'il y en a un, sinon
+// rafraichissement de la liste des fichiers et apercu immediat.
+async function produireLivrable(cle, url, resume) {
+  const bouton = document.getElementById("bouton-" + cle);
+  const chargement = document.getElementById("chargement-" + cle);
+  const info = document.getElementById("info-" + cle);
+  bouton.disabled = true;
+  chargement.classList.remove("masque");
+  afficherAlerte("alerte-" + cle, null);
+  info.classList.add("masque");
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dossier: dossierCourant }),
+    });
+    const data = await r.json();
+    if (data.erreur) {
+      afficherAlerte("alerte-" + cle, data.erreur);
+      return;
+    }
+    info.textContent = resume(data);
+    info.classList.remove("masque");
+    await rafraichirListeFichiers();
+    previsualiserFichier({ nom: data.fichier });
+  } catch (e) {
+    afficherAlerte("alerte-" + cle, "Erreur : " + e);
+  } finally {
+    bouton.disabled = false;
+    chargement.classList.add("masque");
+  }
+}
+
+// La liste des fichiers vient de /api/generer. Plutot que de rejouer une
+// generation complete pour la rafraichir, on rejoue la derniere reponse
+// connue en y reinjectant les fichiers renvoyes par le serveur.
+let derniereGeneration = null;
+
+async function rafraichirListeFichiers() {
+  if (!derniereGeneration) return;
+  const r = await fetch("/api/fichiers?dossier=" + encodeURIComponent(dossierCourant));
+  const data = await r.json();
+  if (data.fichiers) {
+    derniereGeneration.fichiers = data.fichiers;
+    remplirListeFichiers(data.fichiers);
+  }
+}
+
+document.getElementById("bouton-replique").addEventListener("click", () =>
+  produireLivrable("replique", "/api/replique", (d) =>
+    d.postes_renseignes + " poste(s) renseigné(s) sur " + d.postes
+    + " — profil " + d.profil
+    + (d.depose ? " — période marquée déposée"
+                : " — filigrane BROUILLON (non déposée)")));
+
+document.getElementById("bouton-xml").addEventListener("click", () =>
+  produireLivrable("xml", "/api/xml", (d) =>
+    d.type_declaration + " — " + d.periode_libelle
+    + " (Year " + d.annee + ", Period " + d.period + ") — "
+    + d.cases + " cases — schéma " + d.schema + " — "
+    + (d.pret_pour_depot_reel
+                ? "paramètres eCDF réels : déposable."
+                : "paramètres eCDF encore en gabarit : fichier de test, non déposable.")));
 
 function previsualiserFichier(f) {
   const url = "/api/telecharger?dossier=" + encodeURIComponent(dossierCourant)

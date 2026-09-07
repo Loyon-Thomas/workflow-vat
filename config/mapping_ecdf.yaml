@@ -53,6 +53,59 @@ formulaires:
       prorata_non_recuperable: {taxe: "095", libelle: "Non recoverable proportion (Art. 50)"}
       tva_amont_deductible: {taxe: "102", libelle: "Total input tax deductible (093-097+101)"}
 
+      # --- Ventilation de la taxe en amont par nature de depense -------
+      #
+      # Releve sur le formulaire officiel TVA_DECA 2025 (pages 5 et 6),
+      # section III.A. Le formulaire croise DEUX axes :
+      #   - la nature de la depense : stock (080) / investissement (084) /
+      #     frais d'exploitation (088), plus "autres" (179) ;
+      #   - l'origine de la taxe : facturee par un assujetti (a), acquisition
+      #     intracommunautaire (b), importation (c), autoliquidation (d).
+      #
+      # Le moteur connait le second axe -- il decoule du regime de chaque
+      # facture -- mais PAS le premier : rien dans une facture ne dit si un
+      # achat est un stock, un investissement ou un frais d'exploitation.
+      # C'est une qualification comptable, propre au dossier.
+      #
+      # Ces postes n'ont donc aucun equivalent cote moteur : ils restent
+      # vides dans la replique PDF (le client voit la case et voit qu'elle
+      # n'est pas remplie) et sont omis du XML (eCDF interdit les elements
+      # vides et distingue un 0 declare d'une case absente). Les remplir
+      # suppose une ventilation cote moteur, a valider separement.
+      stock_total: {taxe: "080", libelle: "Total of VAT on stock entries"}
+      stock_assujettis: {taxe: "077", libelle: "Stock - VAT invoiced by other taxable persons"}
+      stock_acq_intracom: {taxe: "078", libelle: "Stock - VAT on intra-Community acquisitions"}
+      stock_importations: {taxe: "079", libelle: "Stock - VAT on importations"}
+      stock_autoliquidation: {taxe: "404", libelle: "Stock - VAT due under the reverse charge"}
+
+      invest_total: {taxe: "084", libelle: "Total of VAT on capital expenditures"}
+      invest_assujettis: {taxe: "081", libelle: "Capital expenditure - VAT invoiced by other taxable persons"}
+      invest_acq_intracom: {taxe: "082", libelle: "Capital expenditure - VAT on intra-Community acquisitions"}
+      invest_importations: {taxe: "083", libelle: "Capital expenditure - VAT on importations"}
+      invest_autoliquidation: {taxe: "405", libelle: "Capital expenditure - VAT due under the reverse charge"}
+
+      exploitation_total: {taxe: "088", libelle: "Total of VAT on operational expenditures"}
+      exploitation_assujettis: {taxe: "085", libelle: "Operational expenditure - VAT invoiced by other taxable persons"}
+      exploitation_acq_intracom: {taxe: "086", libelle: "Operational expenditure - VAT on intra-Community acquisitions"}
+      exploitation_importations: {taxe: "087", libelle: "Operational expenditure - VAT on importations"}
+      exploitation_autoliquidation: {taxe: "406", libelle: "Operational expenditure - VAT due under the reverse charge"}
+
+      autres_total: {taxe: "179", libelle: "Other input tax - total"}
+      autres_art13b: {taxe: "090", libelle: "Tax due on application of goods for business purposes (Art. 13(b))"}
+      autres_garantie_art48: {taxe: "092", libelle: "Tax paid as joint and several guarantee (Art. 48)"}
+      autres_suspension_art60bis: {taxe: "228", libelle: "Adjusted tax - tax suspension arrangement (Art. 60bis(9))"}
+
+      # --- Detail de la taxe non deductible (case 097) ------------------
+      non_deductible_art44: {taxe: "094", libelle: "Non recoverable input tax - exempt supplies (Art. 44, 56quater, 57bis/ter/quater)"}
+      non_deductible_marge: {taxe: "096", libelle: "Non recoverable input tax - margin scheme (Art. 56ter-1(7), 56ter-2(7))"}
+
+      # --- Regularisations des deductions (case 101) --------------------
+      # Une diminution de la taxe recuperable se note avec un signe moins.
+      regul_total: {taxe: "101", libelle: "Adjustment of deductions"}
+      regul_art53: {taxe: "098", libelle: "Adjustment of deductions - Art. 53"}
+      regul_option_terrains: {taxe: "099", libelle: "Adjustment of deductions - option to tax land (Rgt g.-d. 07.03.1980)"}
+      regul_autres: {taxe: "100", libelle: "Adjustment of deductions - other"}
+
     # --- IV. Solde ---------------------------------------------------
     solde:
       total_taxe_due: {taxe: "076", libelle: "Total tax due (046+056+407+410+768+227)"}

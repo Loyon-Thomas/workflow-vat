@@ -1,0 +1,46 @@
+# =====================================================================
+# GABARIT - PARAMETRES DE PRODUCTION DU FICHIER XML eCDF
+#
+# Copier ce fichier en config/ecdf.yaml puis le completer. C'est ecdf.yaml
+# qui est lu ; il porte des identifiants du cabinet et n'est PAS versionne.
+#
+# Ces valeurs sont propres a TON cabinet en tant qu'AGENT (la societe qui
+# prepare et transfere le fichier), pas au client declarant. Elles doivent
+# rester stables dans le temps.
+#
+# Tant que "interface" vaut IIIII et "prefixe_agent" 000000, le XML produit
+# ne sert qu'aux tests de structure : eCDF refusera un depot reel.
+# =====================================================================
+
+# Prefixe eCDF de l'agent, 6 caracteres. Visible sur le site eCDF, menu
+# "Transfert de fichiers", lien "reference unique". Sert a construire la
+# FileReference.
+prefixe_agent: "000000"
+
+# Identifiant de l'interface XML, attribue par le CTIE apres validation
+# d'une demande d'acces developpeur. Sans lui, un depot reel est refuse.
+interface: "IIIII"
+
+# Langue du depot : FR, DE ou EN. eCDF genere un PDF dans cette langue.
+langue: "FR"
+
+# Attribut "model" du formulaire. L'exemple officiel du CTIE utilise "1"
+# pour TVA_DECM, TVA_DECT et TVA_DECA. La liste faisant foi (type x modele
+# x annee de reference) vit dans l'espace developpeurs authentifie : a
+# confirmer avant tout depot reel.
+model: "1"
+
+# Identifiants de l'agent. "NE" si la donnee n'existe pas.
+#   matricule : 11 ou 13 chiffres
+#   rcs       : ex. B123456, ou NE
+#   tva       : 8 chiffres SANS le prefixe LU, ou NE
+agent:
+  matricule: "A COMPLETER"
+  rcs: "NE"
+  tva: "NE"
+
+# Regime d'imposition porte par le formulaire : case 204 (d'apres les
+# debits) / case 205 (d'apres les recettes). Le moteur travaille en regime
+# des debits, regle figee (loi TVA du 12.02.1979, art. 24 par. 1er).
+# Ne pas modifier sans revoir aussi annexes_tva.py.
+regime_debits: true

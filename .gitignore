@@ -16,3 +16,16 @@ dossiers/
 __pycache__/
 *.pyc
 .DS_Store
+
+# ---------------------------------------------------------------------
+# IDENTIFIANTS DU CABINET - matricule, RCS, numero de TVA.
+# Le gabarit config/ecdf.template.yaml est versionne a sa place.
+# ---------------------------------------------------------------------
+config/ecdf.yaml
+
+# Sauvegarde vers pCloud
+*.log
+
+# Signatures ad-hoc des bundles .app : refaites sur chaque machine par
+# codesign --force --deep --sign -, jamais transportables telles quelles.
+**/_CodeSignature/
