@@ -117,6 +117,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_pdf(parse_qs(analyse.query))
         elif chemin == "/api/fichiers":
             self._api_fichiers(parse_qs(analyse.query))
+        elif chemin == "/api/apercu-xlsx":
+            self._api_apercu_xlsx(parse_qs(analyse.query))
         elif chemin == "/api/telecharger":
             self._api_telecharger(parse_qs(analyse.query))
         else:
@@ -140,6 +142,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_replique()
         elif chemin == "/api/xml":
             self._api_xml()
+        elif chemin == "/api/declaration":
+            self._api_declaration()
         elif chemin == "/api/generer":
             self._api_generer()
         elif chemin == "/api/ouvrir-dossier":
@@ -430,6 +434,29 @@ class Handler(BaseHTTPRequestHandler):
         infos["fichier"] = os.path.basename(chemin)
         self._json(infos)
 
+    def _api_declaration(self):
+        corps = self._lire_corps_json()
+        dossier_abs, dossier_sortie = self._societe_et_sortie(corps)
+        if dossier_abs is None:
+            return
+        try:
+            import declaration_officielle
+        except ImportError as e:
+            self._json({"erreur": "Ce livrable a besoin de PyMuPDF et reportlab : "
+                                   "python3 -m pip install --user pymupdf reportlab "
+                                   "(%s)" % e}, code=400)
+            return
+        try:
+            chemin, infos = declaration_officielle.generer(dossier_abs, dossier_sortie)
+        except FileNotFoundError as e:
+            self._json({"erreur": "%s" % e}, code=400)
+            return
+        except Exception as e:
+            self._json({"erreur": "Document impossible : %s" % e}, code=500)
+            return
+        infos["fichier"] = os.path.basename(chemin)
+        self._json(infos)
+
     def _api_xml(self):
         corps = self._lire_corps_json()
         dossier_abs, dossier_sortie = self._societe_et_sortie(corps)
@@ -474,6 +501,42 @@ class Handler(BaseHTTPRequestHandler):
             return
         sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
         self._json({"fichiers": fichiers_produits(sortie)})
+
+    def _api_apercu_xlsx(self, query):
+        """Rend un classeur en HTML, onglet par onglet.
+
+        Le cadre d'apercu de l'ecran 3 est une iframe : elle sait afficher du
+        PDF, du texte et du HTML, mais pas un .xlsx. Plutot que de renvoyer
+        l'utilisateur vers Excel pour un simple coup d'oeil, on relit le
+        classeur produit et on le transcrit en tableaux. Aucune valeur n'est
+        recalculee : openpyxl est ouvert en data_only, donc on lit les
+        resultats deja ecrits par le moteur, jamais les formules.
+        """
+        dossier_nom = (query.get("dossier") or [None])[0]
+        periode = (query.get("periode") or [None])[0]
+        nom = (query.get("fichier") or [None])[0]
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        if (dossier_nom not in societes or not periode or not nom
+                or "/" in nom or "\\" in nom or not nom.lower().endswith(".xlsx")):
+            self.send_error(400)
+            return
+        dossier_sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
+        chemin = os.path.join(dossier_sortie, nom)
+        if (not os.path.isfile(chemin)
+                or os.path.dirname(os.path.abspath(chemin)) != dossier_sortie):
+            self.send_error(404)
+            return
+        try:
+            html = classeur_en_html(chemin)
+        except Exception as e:
+            html = ("<p style='color:#b42318;font:14px -apple-system,sans-serif;"
+                    "padding:24px'>Aperçu impossible : %s</p>" % _echapper(str(e)))
+        corps = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(corps)))
+        self.end_headers()
+        self.wfile.write(corps)
 
     def _api_telecharger(self, query):
         dossier_nom = (query.get("dossier") or [None])[0]
@@ -804,6 +867,65 @@ def ecrire_societe_yaml(cible, v):
     return chemin
 
 
+def _echapper(s):
+    """Echappement HTML : le contenu vient de factures lues, donc de texte
+    dont on ne maitrise pas la forme. Il est affiche, jamais interprete."""
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def classeur_en_html(chemin):
+    """Transcrit un .xlsx en HTML lisible, un tableau par onglet.
+
+    data_only=True : on lit les valeurs deja calculees et ecrites par le
+    moteur, pas les formules. Rien n'est recalcule ici.
+    """
+    import openpyxl
+    classeur = openpyxl.load_workbook(chemin, data_only=True, read_only=True)
+    morceaux = ["""<style>
+      body { font: 13px -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+             margin: 0; padding: 16px; color: #1c1e21; background: #fff; }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+           color: #6b7280; margin: 22px 0 8px; }
+      h2:first-of-type { margin-top: 0; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+      th, td { border-bottom: 1px solid #e2e4e9; padding: 5px 8px;
+               text-align: left; vertical-align: top; white-space: nowrap; }
+      th { background: #f5f6f8; color: #6b7280; font-size: 11px;
+           text-transform: uppercase; position: sticky; top: 0; }
+      td.n { text-align: right; font-variant-numeric: tabular-nums; }
+      tr:hover td { background: #f9fafb; }
+      .vide { color: #6b7280; font-style: italic; }
+    </style>"""]
+    for onglet in classeur.worksheets:
+        morceaux.append("<h2>%s</h2>" % _echapper(onglet.title))
+        lignes = list(onglet.iter_rows(values_only=True))
+        # Les lignes entierement vides servent d'aeration dans le classeur ;
+        # elles n'apportent rien a un tableau HTML.
+        lignes = [l for l in lignes if any(c is not None and str(c).strip() for c in l)]
+        if not lignes:
+            morceaux.append("<p class='vide'>Onglet vide.</p>")
+            continue
+        # Pas de <thead> : les onglets commencent par des lignes de titre
+        # (societe, periode, intitule), pas par un en-tete de colonnes.
+        # Promouvoir la premiere ligne au rang d'en-tete la deformerait.
+        morceaux.append("<table><tbody>")
+        for l in lignes:
+            morceaux.append("<tr>")
+            for c in l:
+                if c is None:
+                    morceaux.append("<td></td>")
+                elif isinstance(c, (int, float)):
+                    morceaux.append("<td class='n'>%s</td>"
+                                     % _echapper(("%.2f" % c) if isinstance(c, float) else c))
+                else:
+                    morceaux.append("<td>%s</td>" % _echapper(c))
+            morceaux.append("</tr>")
+        morceaux.append("</tbody></table>")
+    classeur.close()
+    return "\n".join(morceaux)
+
+
 def decouper_periode(periode):
     """'2025-Q3' -> ('2025', 'Q3'). Le suffixe est celui du moteur (Q3, M08,
     ANNUAL) : le dossier porte le meme nom que ce que contiennent les
@@ -868,6 +990,8 @@ def fichiers_produits(dossier_sortie):
     # precedents -- la replique porte sa propre date, le XML porte la
     # reference imposee par eCDF -- d'ou la recherche par motif.
     for motif, libelle, apercu in (("*-REPLIQUE.pdf", "Réplique client (PDF)", "pdf"),
+                                    ("*-DECLARATION-OFFICIELLE-*.pdf",
+                                     "Déclaration officielle et annexes (PDF)", "pdf"),
                                     ("*.xml", "Fichier eCDF déposable (XML)", "texte")):
         trouves = sorted(glob.glob(os.path.join(dossier_sortie, motif)),
                           key=os.path.getmtime, reverse=True)

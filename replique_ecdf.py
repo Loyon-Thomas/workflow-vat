@@ -47,10 +47,12 @@ FILIGRANE = "BROUILLON — NON DÉPOSÉ"
 # telle quelle. On la designe par sa cle de poste (stable d'un profil a
 # l'autre) plutot que par son numero de case (qui, lui, change entre DECA et
 # DECM).
+# La replique client ne porte QUE le solde. Le detail du chiffre d'affaires,
+# de la taxe due et de la taxe deductible vit dans le livrable
+# "declaration officielle + annexes", qui reprend le formulaire complet. Ce
+# document-ci sert a une seule chose : faire dire oui ou non au client sur le
+# montant a payer ou a recuperer.
 SECTIONS = [
-    ("I", "Chiffre d'affaires", ["turnover"], ("turnover", "ca_global")),
-    ("II", "Taxe due", ["aval", "autoliquidation"], ("solde", "total_taxe_due")),
-    ("III", "Taxe déductible", ["amont"], ("amont", "tva_amont_deductible")),
     ("IV", "Solde", ["solde"], ("solde", "excedent")),
 ]
 
@@ -431,11 +433,18 @@ def generer_replique(dossier_abs, dossier_sortie, repo=REPO, chemin_sortie=None)
             "lignes concernées sont exclues des montants ci-après. Voir le rapport "
             "d'exceptions joint." % declare["exceptions_bloquantes"], styles["mention"]))
     hist.append(Paragraph(
-        "Les cases sans montant sont affichées vides et non omises, afin que la "
-        "totalité des postes du profil %s puisse être passée en revue." % nom_profil,
+        "Ce document présente le <b>solde de la période</b> et lui seul : le montant "
+        "à verser à l'Administration, ou l'excédent à récupérer. Il est destiné à "
+        "recueillir votre accord sur ce montant avant tout dépôt.<br/><br/>"
+        "Le détail complet de la déclaration — chiffre d'affaires, taxe due, taxe "
+        "déductible, case par case — figure dans le document «\u00a0Déclaration "
+        "officielle et annexes\u00a0», établi sur le formulaire %s. Les cases sans "
+        "montant y sont affichées vides et non omises, afin que la totalité des "
+        "postes puisse être passée en revue." % nom_profil,
         styles["petit"]))
+    hist.append(Spacer(1, 4 * mm))
 
-    # -- sections I a IV -----------------------------------------------
+    # -- section IV : le solde -----------------------------------------
     for numero, titre, blocs, cle_total in SECTIONS:
         rangs = []
         for b in blocs:
@@ -452,7 +461,7 @@ def generer_replique(dossier_abs, dossier_sortie, repo=REPO, chemin_sortie=None)
                 fin = [Spacer(1, 3 * mm), _encadre_solde(case, valeur, styles)]
             else:
                 fin = [_ligne_total("Total de la section", valeur)]
-        titre_p = Paragraph("%s. %s" % (numero, titre), styles["section"])
+        titre_p = Paragraph(titre, styles["section"])
         tableau = _tableau_section(rangs, styles)
         if len(rangs) <= 12:
             # Section courte : titre, tableau et total restent sur une page.

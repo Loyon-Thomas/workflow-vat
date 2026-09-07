@@ -456,13 +456,20 @@
       <h2>Livrables dérivés</h2>
       <p class="discret" style="margin-top:-8px;">
         Produits à partir de l'instantané machine, sans aucun recalcul.
-        Aucun dépôt automatique : le transfert vers eCDF reste manuel.
+        La réplique porte le seul solde, pour l'accord du client ; la
+        déclaration officielle reprend le formulaire publié, rempli, suivi
+        des annexes. Aucun dépôt automatique : le transfert reste manuel.
       </p>
 
       <button id="bouton-replique">Réplique PDF pour le client</button>
       <span id="chargement-replique" class="chargement masque">Production en cours…</span>
       <div id="alerte-replique" class="alerte masque"></div>
       <p id="info-replique" class="discret masque"></p>
+
+      <button id="bouton-declaration" style="margin-top: 12px;">Déclaration officielle et annexes</button>
+      <span id="chargement-declaration" class="chargement masque">Production en cours…</span>
+      <div id="alerte-declaration" class="alerte masque"></div>
+      <p id="info-declaration" class="discret masque"></p>
 
       <button id="bouton-xml" style="margin-top: 12px;">Fichier eCDF déposable (XML)</button>
       <span id="chargement-xml" class="chargement masque">Contrôles en cours…</span>
@@ -483,7 +490,7 @@
         <div id="apercu-vide" class="vide">Clique un fichier pour le prévisualiser</div>
         <iframe id="apercu-fichier" class="masque"></iframe>
         <div id="apercu-non-disponible" class="vide masque">
-          Aperçu non disponible pour les classeurs Excel dans cette version 0.1.
+          Aperçu indisponible pour ce fichier.
           <br><br>
           <a id="lien-ouvrir-xlsx" href="#" target="_blank">Ouvrir / télécharger le fichier</a>
         </div>
@@ -1163,6 +1170,13 @@ document.getElementById("bouton-replique").addEventListener("click", () =>
     + (d.depose ? " — période marquée déposée"
                 : " — filigrane BROUILLON (non déposée)")));
 
+document.getElementById("bouton-declaration").addEventListener("click", () =>
+  produireLivrable("declaration", "/api/declaration", (d) =>
+    "Formulaire " + d.formulaire + " — " + d.cases_remplies + " case(s) remplie(s) sur "
+    + d.cases_disponibles + " — " + d.pages + " pages"
+    + (d.annexes_jointes ? ", annexes jointes" : ", classeur introuvable : annexes absentes")
+    + (d.depose ? "." : " — filigrane BROUILLON (non déposée).")));
+
 document.getElementById("bouton-xml").addEventListener("click", () =>
   produireLivrable("xml", "/api/xml", (d) =>
     d.type_declaration + " — " + d.periode_libelle
@@ -1180,15 +1194,15 @@ function previsualiserFichier(f) {
   const vide = document.getElementById("apercu-vide");
   const nonDispo = document.getElementById("apercu-non-disponible");
   vide.classList.add("masque");
-  if (f.nom.toLowerCase().endsWith(".xlsx")) {
-    iframe.classList.add("masque");
-    nonDispo.classList.remove("masque");
-    document.getElementById("lien-ouvrir-xlsx").href = url;
-  } else {
-    nonDispo.classList.add("masque");
-    iframe.src = url;
-    iframe.classList.remove("masque");
-  }
+  nonDispo.classList.add("masque");
+  // Un classeur ne s'affiche pas dans une iframe : on le fait transcrire en
+  // tableaux HTML par le serveur, qui relit les valeurs deja calculees.
+  iframe.src = f.nom.toLowerCase().endsWith(".xlsx")
+    ? "/api/apercu-xlsx?dossier=" + encodeURIComponent(dossierCourant)
+      + "&periode=" + encodeURIComponent(periodeCourante)
+      + "&fichier=" + encodeURIComponent(f.nom)
+    : url;
+  iframe.classList.remove("masque");
 }
 
 document.getElementById("lien-quitter").addEventListener("click", async (ev) => {
