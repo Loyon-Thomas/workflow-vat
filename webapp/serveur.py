@@ -24,7 +24,9 @@ Lancement : python3 webapp/serveur.py (ouvre le navigateur tout seul).
 Arret     : Ctrl+C dans le terminal ou fermeture de ce terminal.
 """
 import errno
+import datetime as dt
 import glob
+import hashlib
 import io
 import json
 import os
@@ -152,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_quitter()
         elif chemin == "/api/societe":
             self._api_creer_societe()
+        elif chemin == "/api/transaction":
+            self._api_ajouter_transaction()
         else:
             self.send_error(404)
 
@@ -165,7 +169,10 @@ class Handler(BaseHTTPRequestHandler):
             # liste deroulante puisse signaler une societe non deposable
             # AVANT qu'on lance une campagne entiere pour rien.
             s.update(etat_ecdf(conf))
-        self._json({"societes": societes})
+            # Alimente les listes de la fenetre de saisie manuelle : les
+            # valeurs admises viennent du dossier, jamais codees dans la page.
+            s["taux_admis"] = conf.get("taux_admis") or [0.0, 0.03, 0.08, 0.14, 0.17]
+        self._json({"societes": societes, "regimes_admis": lc.REGIMES_ADMIS})
 
     def _api_creer_societe(self):
         corps = self._lire_corps_json()
@@ -184,6 +191,45 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
             return
         self._json({"ok": True, "dossier": valeurs["code"], "fichier": chemin})
+
+    def _api_ajouter_transaction(self):
+        corps = self._lire_corps_json()
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        dossier_nom = corps.get("dossier")
+        if dossier_nom not in societes:
+            self._json({"erreurs": {"_": "societe inconnue"}}, code=400)
+            return
+        dossier_abs = societes[dossier_nom]["chemin"]
+        ext = _dossier_extraction(dossier_abs)
+        if not os.path.isfile(os.path.join(ext, "_inventaire.json")):
+            self._json({"erreurs": {"_": "Lance d'abord l'inventaire : la saisie "
+                                          "vient s'ajouter aux factures inventoriées."}},
+                        code=400)
+            return
+        conf = lc.charger_conf(dossier_abs)
+        document, entree, erreurs = valider_transaction(corps, conf)
+        if erreurs:
+            self._json({"erreurs": erreurs}, code=400)
+            return
+
+        manuelles = lire_manuelles(dossier_abs)
+        if any(m["sha256"] == document["sha256"] for m in manuelles):
+            self._json({"erreurs": {"_": "Cette transaction a déjà été saisie "
+                                          "(mêmes tiers, numéro, date et montants)."}},
+                        code=400)
+            return
+        try:
+            _ecrire_json(os.path.join(ext, entree["extraction"]), document)
+            manuelles.append({"sha256": document["sha256"],
+                               "entree_inventaire": entree,
+                               "saisie_le": document["saisie_le"]})
+            _ecrire_json(os.path.join(ext, FICHIER_MANUELLES), manuelles)
+            injecter_manuelles(dossier_abs)
+        except Exception as e:
+            self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
+            return
+        self._json({"ok": True, "libelle": document["fichier"],
+                     "total_manuelles": len(manuelles)})
 
     def _api_choisir_dossier_factures(self):
         chemin = choisir_dossier_natif("Choisir le dossier des factures")
@@ -207,15 +253,21 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": (r.stderr or r.stdout
                                     or "echec de l'inventaire").strip()}, code=400)
             return
+        # etape_inventaire reecrit _inventaire.json en entier : les
+        # transactions saisies a la main en disparaitraient. On les remet.
+        nb_manuelles = injecter_manuelles(dossier_abs)
         inv = lc.lire_inventaire(dossier_abs)
         nb_natifs = sum(1 for d in inv["documents"] if d["type"] == "natif")
-        nb_scans = len(inv["documents"]) - nb_natifs
+        nb_manuel = sum(1 for d in inv["documents"] if d["type"] == "manuel")
+        nb_scans = len(inv["documents"]) - nb_natifs - nb_manuel
         self._json({
             "nb_fichiers": inv["nb_fichiers"],
             "nb_doublons_ecartes": inv["nb_doublons_ecartes"],
             "nb_non_pdf_ignores": inv["nb_non_pdf_ignores"],
             "nb_natifs": nb_natifs,
             "nb_scans": nb_scans,
+            "nb_manuelles": nb_manuel,
+            "manuelles_reinjectees": nb_manuelles,
             "doublons": inv["doublons"],
             "documents": [
                 {"fichier": d["fichier"], "sens_chemin": d.get("sens_chemin"),
@@ -865,6 +917,178 @@ def ecrire_societe_yaml(cible, v):
     with io.open(chemin, "w", encoding="utf-8") as f:
         f.write(texte)
     return chemin
+
+
+# =====================================================================
+# Transactions saisies a la main
+#
+# Le moteur construit ses lignes en parcourant _inventaire.json puis en
+# chargeant, pour chaque document, son fichier d'extraction. Une transaction
+# sans facture peut donc entrer par la meme porte : une entree d'inventaire
+# plus un fichier d'extraction de meme forme. Aucun calcul n'est fait ici et
+# le moteur n'est pas modifie -- la ligne suit exactement le meme chemin de
+# controle qu'une facture lue.
+#
+# Les saisies vivent AUSSI dans extraction/_manuelles.json : etape_inventaire
+# reecrit _inventaire.json en entier a chaque passage, ce qui les effacerait.
+# Elles sont donc reinjectees apres chaque inventaire.
+# =====================================================================
+
+FICHIER_MANUELLES = "_manuelles.json"
+
+
+def _dossier_extraction(dossier_abs):
+    return os.path.join(dossier_abs, "extraction")
+
+
+def lire_manuelles(dossier_abs):
+    p = os.path.join(_dossier_extraction(dossier_abs), FICHIER_MANUELLES)
+    if not os.path.isfile(p):
+        return []
+    try:
+        with io.open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _ecrire_json(chemin, donnees):
+    os.makedirs(os.path.dirname(chemin), exist_ok=True)
+    with io.open(chemin, "w", encoding="utf-8") as f:
+        json.dump(donnees, f, ensure_ascii=False, indent=2)
+
+
+def injecter_manuelles(dossier_abs):
+    """Reinjecte les saisies dans _inventaire.json. Idempotent : une saisie
+    deja presente n'est pas dupliquee."""
+    ext = _dossier_extraction(dossier_abs)
+    chemin_inv = os.path.join(ext, "_inventaire.json")
+    if not os.path.isfile(chemin_inv):
+        return 0
+    manuelles = lire_manuelles(dossier_abs)
+    if not manuelles:
+        return 0
+    with io.open(chemin_inv, encoding="utf-8") as f:
+        inv = json.load(f)
+    connus = {d.get("sha256") for d in inv.get("documents", [])}
+    ajoutees = 0
+    for m in manuelles:
+        if m["sha256"] in connus:
+            continue
+        inv.setdefault("documents", []).append(m["entree_inventaire"])
+        ajoutees += 1
+    if ajoutees:
+        inv["nb_fichiers"] = len(inv["documents"])
+        _ecrire_json(chemin_inv, inv)
+    return ajoutees
+
+
+def valider_transaction(corps, conf):
+    """Controle une saisie. Renvoie (document, entree_inventaire, erreurs).
+
+    Les regles sont celles du moteur : regimes admis, taux admis, coherence
+    base x taux contre TVA saisie dans la tolerance du dossier. Elles sont
+    verifiees ICI pour que l'erreur soit dite au moment de la saisie, mais le
+    moteur les revoit ensuite de toute facon -- c'est lui qui fait foi.
+    """
+    erreurs = {}
+    v = {}
+
+    sens = str(corps.get("sens") or "").strip().lower()
+    if sens not in ("achat", "vente"):
+        erreurs["sens"] = "Choisir achat ou vente."
+    v["sens"] = sens
+
+    regime = str(corps.get("regime") or "").strip()
+    if regime not in lc.REGIMES_ADMIS:
+        erreurs["regime"] = "Régime non admis."
+    v["regime"] = regime
+
+    tiers = str(corps.get("tiers") or "").strip()
+    if not tiers:
+        erreurs["tiers"] = "Obligatoire."
+    v["tiers"] = tiers
+
+    date = str(corps.get("date") or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        erreurs["date"] = "Format attendu : AAAA-MM-JJ."
+    v["date"] = date
+
+    v["num_facture"] = str(corps.get("num_facture") or "").strip() or None
+    v["pays"] = (str(corps.get("pays") or "").strip().upper() or None)
+    v["devise"] = str(corps.get("devise") or "EUR").strip().upper() or "EUR"
+
+    def nombre(cle, obligatoire=True):
+        brut = corps.get(cle)
+        if brut in (None, ""):
+            if obligatoire:
+                erreurs[cle] = "Obligatoire."
+            return None
+        try:
+            # Les claviers francais produisent des virgules decimales.
+            return float(str(brut).replace(",", ".").replace(" ", ""))
+        except ValueError:
+            erreurs[cle] = "Nombre attendu."
+            return None
+
+    base = nombre("base")
+    tva = nombre("tva")
+    taux = nombre("taux")
+    taux_change = nombre("taux_change", obligatoire=False)
+    v["taux_change"] = taux_change if taux_change else 1.0
+
+    taux_admis = conf.get("taux_admis") or [0.0, 0.03, 0.08, 0.14, 0.17]
+    if taux is not None and taux not in taux_admis:
+        erreurs["taux"] = ("Taux non admis. Admis : %s."
+                            % ", ".join(str(x) for x in taux_admis))
+
+    # Meme controle que le moteur (C3) : base x taux doit retrouver la TVA
+    # saisie, a la tolerance du dossier pres. Une saisie incoherente serait
+    # rejetee plus tard ; autant le dire tout de suite.
+    tolerance = conf.get("tolerance_arrondi", 0.02)
+    if base is not None and tva is not None and taux is not None:
+        ecart = abs(round(base * taux, 2) - round(tva, 2))
+        if ecart > tolerance:
+            erreurs["tva"] = ("Incohérent : %.2f x %g = %.2f, écart de %.2f "
+                               "(tolérance %.2f)."
+                               % (base, taux, base * taux, ecart, tolerance))
+
+    if erreurs:
+        return None, None, erreurs
+
+    # Identifiant : une empreinte du contenu saisi, pour que deux saisies
+    # identiques ne creent pas deux lignes, et pour ressembler a un sha256
+    # de facture (meme place, meme role dans l'inventaire).
+    empreinte = hashlib.sha256(
+        ("MANUEL|%s|%s|%s|%s|%s|%s" % (sens, tiers, v["num_facture"], date, base, tva))
+        .encode("utf-8")).hexdigest()
+
+    libelle = "SAISIE MANUELLE — %s%s du %s" % (
+        tiers, (" n° %s" % v["num_facture"]) if v["num_facture"] else "", date)
+
+    document = {
+        "sens": sens, "tiers": tiers, "tva_tiers": str(corps.get("tva_tiers") or "").strip() or None,
+        "pays": v["pays"], "num_facture": v["num_facture"], "date": date,
+        "devise": v["devise"], "taux_change": v["taux_change"],
+        "total_ttc": round((base or 0) + (tva or 0), 2),
+        "regime": regime,
+        "source_extraction": "saisie manuelle",
+        "saisie_manuelle": True,
+        "motif_saisie": str(corps.get("motif") or "").strip() or None,
+        "saisie_le": dt.datetime.now().isoformat(timespec="seconds"),
+        "lignes": [{"taux": taux, "base": base, "tva": tva,
+                     "description": str(corps.get("description") or "").strip() or libelle}],
+        "fichier": libelle,
+        "sha256": empreinte,
+    }
+    entree = {
+        "sha256": empreinte, "fichier": libelle, "chemin": "",
+        # Pas de chemin, donc pas de sens deductible du dossier : c'est la
+        # saisie elle-meme qui porte le sens, et elle est explicite.
+        "sens_chemin": None, "type": "manuel", "texte": None,
+        "extraction": empreinte[:12] + ".json", "statut": "saisi",
+    }
+    return document, entree, {}
 
 
 def _echapper(s):

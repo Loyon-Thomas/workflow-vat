@@ -364,6 +364,95 @@
   </form>
 </dialog>
 
+<!-- Transaction saisie a la main : une operation reelle sans facture au
+     dossier (note de credit recue hors circuit, regularisation, piece
+     egaree). Elle entre par la meme porte qu'une facture lue -- une entree
+     d'inventaire plus un fichier d'extraction -- et subit donc exactement
+     les memes controles. Rien n'est calcule ici. -->
+<dialog id="fenetre-transaction">
+  <form method="dialog">
+    <h2 style="margin-top:0;">Ajouter une transaction</h2>
+    <p class="discret" style="margin-top:-8px;">
+      Pour une opération réelle dont la facture n'est pas au dossier. Elle
+      sera contrôlée et agrégée comme les autres, et signalée comme saisie
+      manuelle sur les livrables.
+    </p>
+
+    <div id="alerte-transaction" class="alerte masque"></div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="champ" style="flex:1;">
+        <label for="t-sens">Sens</label>
+        <select id="t-sens">
+          <option value="achat">Achat</option>
+          <option value="vente">Vente</option>
+        </select>
+        <p class="discret err" id="et-sens"></p>
+      </div>
+      <div class="champ" style="flex:2;">
+        <label for="t-regime">Régime</label>
+        <select id="t-regime"></select>
+        <p class="discret err" id="et-regime"></p>
+      </div>
+    </div>
+
+    <div class="champ">
+      <label for="t-tiers">Tiers</label>
+      <input type="text" id="t-tiers" placeholder="Nom du fournisseur ou du client" autocomplete="off">
+      <p class="discret err" id="et-tiers"></p>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="champ" style="flex:1;">
+        <label for="t-num_facture">N° de pièce</label>
+        <input type="text" id="t-num_facture" placeholder="facultatif" autocomplete="off">
+      </div>
+      <div class="champ" style="flex:1;">
+        <label for="t-date">Date d'émission</label>
+        <input type="text" id="t-date" placeholder="AAAA-MM-JJ" autocomplete="off">
+        <p class="discret err" id="et-date"></p>
+      </div>
+      <div class="champ" style="flex:1;">
+        <label for="t-pays">Pays du tiers</label>
+        <input type="text" id="t-pays" placeholder="LU, DE, FR…" autocomplete="off">
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <div class="champ" style="flex:1;">
+        <label for="t-taux">Taux</label>
+        <select id="t-taux"></select>
+        <p class="discret err" id="et-taux"></p>
+      </div>
+      <div class="champ" style="flex:1;">
+        <label for="t-base">Base HT</label>
+        <input type="text" id="t-base" placeholder="1000,00" autocomplete="off">
+        <p class="discret err" id="et-base"></p>
+      </div>
+      <div class="champ" style="flex:1;">
+        <label for="t-tva">TVA facturée</label>
+        <input type="text" id="t-tva" placeholder="170,00" autocomplete="off">
+        <p class="discret err" id="et-tva"></p>
+      </div>
+    </div>
+    <p class="discret" style="margin:-6px 0 14px;">
+      La TVA saisie est celle <b>facturée</b>, pas un produit base × taux. Le
+      contrôle vérifie qu'elles concordent, à la tolérance du dossier près.
+    </p>
+
+    <div class="champ">
+      <label for="t-motif">Motif de la saisie <span class="discret">— tracé sur le livrable</span></label>
+      <input type="text" id="t-motif" placeholder="ex. facture égarée, régularisation" autocomplete="off">
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="principal" type="button" id="bouton-enregistrer-transaction">Enregistrer</button>
+      <button type="button" id="bouton-annuler-transaction">Annuler</button>
+      <span id="chargement-transaction" class="chargement masque">Enregistrement…</span>
+    </div>
+  </form>
+</dialog>
+
 <div id="ecran-2" class="large masque">
 
   <div class="retour">
@@ -383,6 +472,9 @@
           donne plusieurs lignes). Champs en clair : modifiables, écrits dans
           le JSON d'extraction de la facture.
         </p>
+        <button id="bouton-ajouter-transaction" style="margin-bottom:12px;">
+          Ajouter une transaction…
+        </button>
         <div style="overflow-x:auto;">
           <table class="detection">
             <thead>
@@ -502,6 +594,7 @@
 
 <script>
 let societes = [];
+let regimesAdmis = [];
 let dossierCourant = null;
 let periodeCourante = null;
 const REGIMES = ["achat_lu", "exonere_art44", "acq_intracom", "service_autoliq",
@@ -546,6 +639,7 @@ async function chargerSocietes() {
   const r = await fetch("/api/societes");
   const data = await r.json();
   societes = data.societes;
+  regimesAdmis = data.regimes_admis || [];
   const select = document.getElementById("select-societe");
   select.innerHTML = "";
   if (societes.length === 0) {
@@ -814,6 +908,12 @@ async function allerEcran2() {
     return;
   }
 
+  await rejouerDetection(resumeLecture);
+}
+
+// Rejoue la seule DETECTION, sans relancer la lecture des factures : une
+// relecture couterait un appel au modele par facture, pour rien.
+async function rejouerDetection(resumeLecture) {
   try {
     const r = await fetch("/api/detection", {
       method: "POST",
@@ -1185,6 +1285,96 @@ document.getElementById("bouton-xml").addEventListener("click", () =>
     + (d.pret_pour_depot_reel
                 ? "paramètres eCDF réels : déposable."
                 : "paramètres eCDF encore en gabarit : fichier de test, non déposable.")));
+
+
+// ---------------------------------------------------------------------
+// Transaction saisie a la main
+// ---------------------------------------------------------------------
+const CHAMPS_TRANSACTION = ["sens", "regime", "tiers", "num_facture", "date",
+                            "pays", "taux", "base", "tva", "motif"];
+
+function ouvrirFenetreTransaction() {
+  const s = societes.find(x => x.dossier === dossierCourant);
+
+  const selRegime = document.getElementById("t-regime");
+  selRegime.innerHTML = "";
+  for (const r of regimesAdmis) {
+    const o = document.createElement("option");
+    o.value = r; o.textContent = r;
+    selRegime.appendChild(o);
+  }
+
+  const selTaux = document.getElementById("t-taux");
+  selTaux.innerHTML = "";
+  for (const tx of (s && s.taux_admis) || [0, 0.03, 0.08, 0.14, 0.17]) {
+    const o = document.createElement("option");
+    o.value = tx; o.textContent = (tx * 100).toFixed(0) + " %";
+    selTaux.appendChild(o);
+  }
+
+  for (const c of CHAMPS_TRANSACTION) {
+    const el = document.getElementById("t-" + c);
+    if (el && el.tagName !== "SELECT") el.value = "";
+  }
+  // La periode traitee donne l'annee la plus probable : on evite une saisie
+  // hors periode par simple etourderie.
+  if (periodeCourante) document.getElementById("t-date").value = periodeCourante.slice(0, 4) + "-";
+  effacerErreursTransaction();
+  document.getElementById("fenetre-transaction").showModal();
+  document.getElementById("t-tiers").focus();
+}
+
+function effacerErreursTransaction() {
+  afficherAlerte("alerte-transaction", null);
+  for (const c of CHAMPS_TRANSACTION) {
+    const e = document.getElementById("et-" + c);
+    if (e) { e.textContent = ""; e.closest(".champ").classList.remove("faux"); }
+  }
+}
+
+function afficherErreursTransaction(erreurs) {
+  effacerErreursTransaction();
+  for (const [champ, message] of Object.entries(erreurs)) {
+    const e = champ === "_" ? null : document.getElementById("et-" + champ);
+    if (e) { e.textContent = message; e.closest(".champ").classList.add("faux"); }
+    else { afficherAlerte("alerte-transaction", message); }
+  }
+}
+
+document.getElementById("bouton-ajouter-transaction")
+        .addEventListener("click", ouvrirFenetreTransaction);
+
+document.getElementById("bouton-annuler-transaction").addEventListener("click", () => {
+  document.getElementById("fenetre-transaction").close();
+});
+
+document.getElementById("bouton-enregistrer-transaction")
+        .addEventListener("click", async () => {
+  const bouton = document.getElementById("bouton-enregistrer-transaction");
+  const chargement = document.getElementById("chargement-transaction");
+  bouton.disabled = true;
+  chargement.classList.remove("masque");
+  const corps = { dossier: dossierCourant };
+  for (const c of CHAMPS_TRANSACTION) corps[c] = document.getElementById("t-" + c).value;
+  try {
+    const r = await fetch("/api/transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corps),
+    });
+    const data = await r.json();
+    if (data.erreurs) { afficherErreursTransaction(data.erreurs); return; }
+    document.getElementById("fenetre-transaction").close();
+    // La detection est rejouee : la ligne saisie doit apparaitre dans le
+    // tableau avec les memes controles que les factures lues.
+    await rejouerDetection();
+  } catch (e) {
+    afficherAlerte("alerte-transaction", "Erreur : " + e);
+  } finally {
+    bouton.disabled = false;
+    chargement.classList.add("masque");
+  }
+});
 
 function previsualiserFichier(f) {
   const url = "/api/telecharger?dossier=" + encodeURIComponent(dossierCourant)
