@@ -124,6 +124,27 @@ class Lectures:
                 self._etats[cle]["courant"] = ("lot de %d : %s…"
                                                 % (len(lot), lot[0]["fichier"]))
             journal.lignes = []
+            # Les scans passent d'abord par l'OCR local : sans texte, ils
+            # devraient etre lus par vision, un par un, et ne pourraient pas
+            # rejoindre le lot. Quelques secondes de calcul ici valent mieux
+            # qu'un appel de plus par document.
+            if lc.ocr_disponible():
+                for doc in lot:
+                    if doc.get("texte") or doc.get("type") == "manuel":
+                        continue
+                    with self._verrou:
+                        if self._etats[cle]["_arret"]:
+                            self._etats[cle]["etat"] = "arrete"
+                            return
+                        self._etats[cle]["courant"] = "OCR : %s" % doc["fichier"]
+                    nom_texte, err = lc.ocriser(dossier_abs, doc)
+                    if nom_texte:
+                        doc["texte"] = nom_texte
+                        marquer_texte_ocr(dossier_abs, doc["sha256"], nom_texte)
+                        journal.log("    OCR : %s" % doc["fichier"])
+                    else:
+                        journal.log("    OCR impossible (%s) — lecture par vision : %s"
+                                    % (err, doc["fichier"]))
             try:
                 lues, a_verifier = lc.traiter_lot(
                     commande_claude, dossier_abs, lot, referentiel_txt,
@@ -1276,6 +1297,28 @@ def reintegrer_ecarte(dossier_abs, sha):
     _ecrire_json(os.path.join(ext, FICHIER_ECARTES),
                   [e for e in ecartes if e["sha256"] != sha])
     return True
+
+
+def marquer_texte_ocr(dossier_abs, sha, nom_texte):
+    """Inscrit dans l'inventaire le texte produit par l'OCR.
+
+    Le type passe a "ocr" et non a "natif" : le document reste un scan, et
+    le dire permet de savoir d'ou vient son texte le jour ou une extraction
+    parait douteuse.
+    """
+    chemin_inv = os.path.join(_dossier_extraction(dossier_abs), "_inventaire.json")
+    if not os.path.isfile(chemin_inv):
+        return
+    with io.open(chemin_inv, encoding="utf-8") as f:
+        inv = json.load(f)
+    change = False
+    for d in inv.get("documents", []):
+        if d.get("sha256") == sha and not d.get("texte"):
+            d["texte"] = nom_texte
+            d["type"] = "ocr"
+            change = True
+    if change:
+        _ecrire_json(chemin_inv, inv)
 
 
 def valider_transaction(corps, conf):

@@ -23,6 +23,7 @@ import re
 import select
 import shutil
 import subprocess
+import tempfile
 import sys
 import time
 
@@ -158,6 +159,12 @@ def ensure_dependencies():
     manquants = [m for m in ("yaml", "openpyxl") if not module_present(m)]
     if not manquants:
         return True
+    # Ecrit AVANT toute tentative de dialogue : lance sans terminal ni
+    # interface (double-clic, tache de fond), un echec ici ne laissait
+    # aucune trace et le serveur s'arretait sans un mot. Le journal doit
+    # toujours dire pourquoi.
+    print("Modules absents de %s : %s" % (sys.executable, ", ".join(manquants)),
+          file=sys.stderr)
     paquets = {"yaml": "pyyaml", "openpyxl": "openpyxl"}
     liste = ", ".join(paquets[m] for m in manquants)
     if not confirmer(
@@ -539,6 +546,100 @@ def est_rappel(nom_fichier, texte):
     ou = "nom du fichier" if dans_nom else "en-tete du document"
     return True, "rappel / relance detecte (%s : « %s »), sans marque de TVA" % (ou, trouve)
 
+
+
+def dossier_temporaire_utilisateur():
+    """Dossier temporaire PROPRE A L'UTILISATEUR (/var/folders/.../T/).
+
+    Pas /tmp : verifie le 08/09/2026, tesseract echoue a relire les images
+    que ocrmypdf y depose ("image file not found"), alors que tout passe
+    dans le dossier temporaire de l'utilisateur. macOS le publie via
+    getconf ; TMPDIR le porte quand il est defini, ce qui n'est pas le cas
+    d'un processus lance sans session (app du Finder, tache de fond).
+    """
+    depuis_env = os.environ.get("TMPDIR")
+    if depuis_env and os.path.isdir(depuis_env):
+        return depuis_env
+    try:
+        r = subprocess.run(["getconf", "DARWIN_USER_TEMP_DIR"],
+                            capture_output=True, text=True, timeout=10)
+        chemin = r.stdout.strip()
+        if r.returncode == 0 and chemin and os.path.isdir(chemin):
+            return chemin
+    except Exception:
+        pass
+    return tempfile.gettempdir()
+
+
+def _pdftotext(chemin):
+    """Texte d'un PDF, via poppler. None si l'outil manque ou echoue."""
+    try:
+        r = subprocess.run(["pdftotext", "-layout", chemin, "-"],
+                            capture_output=True, text=True, timeout=60)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def ocr_disponible():
+    return shutil.which("ocrmypdf") is not None
+
+
+def ocriser(dossier_abs, doc, langues="eng", timeout=300):
+    """Passe un scan a l'OCR local et enregistre son texte.
+
+    Pourquoi : un scan sans texte doit etre lu par VISION, le chemin de
+    loin le plus cher et le plus lent -- et il ne peut pas rejoindre la
+    lecture par lots, qui repose sur du texte. Un OCR local (ocrmypdf +
+    tesseract) le ramene au regime texte pour quelques secondes de calcul
+    sur cette machine, sans consommer un seul jeton.
+
+    Le PDF produit est TEMPORAIRE : rien n'est ecrit dans le dossier du
+    client, seul le texte est conserve dans l'espace de travail, a cote de
+    ceux qu'a produits pdftotext.
+    """
+    source = doc.get("chemin")
+    if not source or not os.path.isfile(source):
+        return None, "fichier introuvable"
+    dossier_textes = os.path.join(dossier_abs, "extraction", "textes")
+    os.makedirs(dossier_textes, exist_ok=True)
+    nom_texte = doc["sha256"][:12] + ".txt"
+    cible_texte = os.path.join(dossier_textes, nom_texte)
+    if os.path.isfile(cible_texte):
+        return nom_texte, None      # deja ocerise lors d'un passage precedent
+
+    temporaire = tempfile.mkstemp(suffix=".pdf",
+                                   dir=dossier_temporaire_utilisateur())[1]
+    try:
+        # --force-ocr : certains scans portent une couche texte vide ou
+        # fautive ; on la remplace au lieu de la conserver.
+        # --optimize 0 : on ne garde pas le PDF, inutile de le compresser.
+        # TMPDIR explicite : ocrmypdf echange ses images avec tesseract par
+        # des fichiers temporaires. Lance depuis un contexte ou TMPDIR n'est
+        # pas defini -- une app du Finder, une tache de fond -- tesseract
+        # echoue avec "image file not found". Verifie le 08/09/2026 : c'est
+        # la SEULE variable qui manquait.
+        env = dict(os.environ)
+        env.setdefault("TMPDIR", dossier_temporaire_utilisateur())
+        r = subprocess.run(
+            ["ocrmypdf", "--force-ocr", "--language", langues,
+             "--optimize", "0", "--quiet", source, temporaire],
+            capture_output=True, text=True, timeout=timeout, env=env)
+        if r.returncode != 0:
+            return None, "ocrmypdf : %s" % (r.stderr.strip()[:200] or "echec")
+        texte = _pdftotext(temporaire)
+        if not texte or len(texte.strip()) < 40:
+            return None, "OCR sans resultat exploitable"
+        with open(cible_texte, "w", encoding="utf-8") as f:
+            f.write(texte)
+        return nom_texte, None
+    except subprocess.TimeoutExpired:
+        return None, "delai d'OCR depasse"
+    finally:
+        try:
+            os.remove(temporaire)
+        except OSError:
+            pass
 
 
 def texte_extrait(dossier_abs, doc):

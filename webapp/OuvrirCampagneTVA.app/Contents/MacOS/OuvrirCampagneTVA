@@ -58,8 +58,27 @@ echo "PATH corrige : $PATH"
 # est ce journal. On teste donc la lecture AVANT d'exec, et on nomme le
 # binaire exact a autoriser (l'entree de PATH est souvent un lien
 # symbolique ; le panneau des Reglages, lui, veut la cible reelle).
-PY="$(command -v python3)"
-echo "python3 retenu : $PY"
+# Choisir un python3 qui porte REELLEMENT les dependances.
+#
+# Installer un paquet Homebrew (ocrmypdf, par exemple) peut tirer un
+# python@3.x qui se place en tete du PATH et masque celui ou pyyaml et
+# openpyxl sont installes. Prendre aveuglement le premier python3 venu
+# faisait alors echouer le demarrage -- sans message, puisque l'app n'a
+# ni terminal ni fenetre. On teste donc les candidats.
+PY=""
+for CANDIDAT in "$(command -v python3)" /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+    [ -x "$CANDIDAT" ] || continue
+    if "$CANDIDAT" -c "import yaml, openpyxl" 2>/dev/null; then
+        PY="$CANDIDAT"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    # Aucun ne convient : on garde le premier, et ensure_dependencies
+    # proposera l'installation en expliquant ce qui manque.
+    PY="$(command -v python3)"
+    echo "AVERTISSEMENT : aucun python3 ne porte pyyaml + openpyxl"
+fi
+echo "python3 retenu : $PY ($("$PY" -V 2>&1))"
 if ! "$PY" -c "open(__import__('sys').argv[1]).read(1)" "$DIR/webapp/serveur.py" 2>/dev/null; then
     REEL="$("$PY" -c 'import sys;print(sys.executable)' 2>/dev/null || echo "$PY")"
     echo "ECHEC : $REEL ne peut pas lire le depot (TCC)"
