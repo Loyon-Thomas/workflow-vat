@@ -585,7 +585,30 @@ def ocr_disponible():
     return shutil.which("ocrmypdf") is not None
 
 
-def ocriser(dossier_abs, doc, langues="eng", timeout=300):
+# Les factures luxembourgeoises arrivent en anglais, en francais ou en
+# allemand -- parfois les trois dans un meme dossier. tesseract accepte
+# plusieurs langues d'un coup ("eng+fra+deu") et choisit ligne par ligne ;
+# le cout est un peu de temps, pas de justesse.
+LANGUES_OCR = "eng+fra+deu"
+
+
+def langues_ocr_disponibles(demandees=LANGUES_OCR):
+    """Ne garde que les langues reellement installees.
+
+    tesseract refuse de demarrer si UNE langue manque : demander deu sans
+    le paquet de langues ferait echouer tout l'OCR, y compris l'anglais.
+    """
+    try:
+        r = subprocess.run(["tesseract", "--list-langs"],
+                            capture_output=True, text=True, timeout=30)
+        presentes = {l.strip() for l in r.stdout.splitlines()[1:] if l.strip()}
+    except Exception:
+        return "eng"
+    gardees = [l for l in demandees.split("+") if l in presentes]
+    return "+".join(gardees) if gardees else "eng"
+
+
+def ocriser(dossier_abs, doc, langues=None, timeout=300):
     """Passe un scan a l'OCR local et enregistre son texte.
 
     Pourquoi : un scan sans texte doit etre lu par VISION, le chemin de
@@ -608,6 +631,7 @@ def ocriser(dossier_abs, doc, langues="eng", timeout=300):
     if os.path.isfile(cible_texte):
         return nom_texte, None      # deja ocerise lors d'un passage precedent
 
+    langues = langues or langues_ocr_disponibles()
     temporaire = tempfile.mkstemp(suffix=".pdf",
                                    dir=dossier_temporaire_utilisateur())[1]
     try:

@@ -1320,6 +1320,7 @@ function afficherResultatGeneration(data) {
   document.getElementById("g-tva-deductible").textContent = formatMontant(data.tva_deductible);
 
   derniereGeneration = data;
+  chargerCases();
   document.getElementById("apercu-fichier").classList.add("masque");
   document.getElementById("apercu-non-disponible").classList.add("masque");
   document.getElementById("apercu-vide").classList.remove("masque");
@@ -1504,6 +1505,176 @@ document.getElementById("bouton-enregistrer-transaction")
     chargement.classList.add("masque");
   }
 });
+
+
+// ---------------------------------------------------------------------
+// Detail des cases : d'ou vient chaque montant
+//
+// Deux natures, jamais melangees :
+//   - une case alimentee par des FACTURES : on liste les lignes, avec le
+//     total en pied pour qu'on voie que la somme retombe ;
+//   - une case DERIVEE d'autres cases : on montre ces cases et leur signe.
+// Rien n'est calcule ici. Le total affiche est la somme des lignes
+// remontees par le moteur, servie a titre de verification visuelle.
+// ---------------------------------------------------------------------
+
+async function chargerCases() {
+  const corps = document.getElementById("corps-cases");
+  corps.innerHTML = "";
+  afficherAlerte("alerte-cases", null);
+  try {
+    const r = await fetch("/api/cases?dossier=" + encodeURIComponent(dossierCourant)
+                        + "&periode=" + encodeURIComponent(periodeCourante));
+    const data = await r.json();
+    if (data.erreur) { afficherAlerte("alerte-cases", data.erreur); return; }
+    casesCourantes = data.cases;
+    for (const c of data.cases) corps.appendChild(construireLigneCase(c));
+  } catch (e) {
+    afficherAlerte("alerte-cases", "Erreur : " + e);
+  }
+}
+
+let casesCourantes = [];
+
+function construireLigneCase(c) {
+  const tr = document.createElement("tr");
+  tr.className = "case-ligne";
+  const numero = c.case_taxe || c.case_base || "—";
+  const montant = c.taxe !== null && c.taxe !== undefined ? c.taxe : c.base;
+  const nb = c.lignes.length || c.derive.length;
+
+  const tdNum = document.createElement("td");
+  tdNum.className = "case-num";
+  tdNum.textContent = numero;
+  const tdLib = document.createElement("td");
+  tdLib.textContent = c.libelle;
+  const tdMt = document.createElement("td");
+  tdMt.className = "num";
+  tdMt.textContent = montant === null || montant === undefined ? "" : formatMontant(montant);
+  const tdSrc = document.createElement("td");
+  tdSrc.className = "discret";
+  tdSrc.style.whiteSpace = "nowrap";
+  tdSrc.textContent = c.nature === "lignes" ? nb + " facture(s)"
+                    : c.nature === "derive" ? nb + " case(s)"
+                    : "—";
+  tr.append(tdNum, tdLib, tdMt, tdSrc);
+
+  if (c.nature === "aucune") {
+    tr.classList.remove("case-ligne");
+    tr.style.cursor = "default";
+    return tr;
+  }
+
+  const trDetail = document.createElement("tr");
+  trDetail.className = "detail masque";
+  const tdDetail = document.createElement("td");
+  tdDetail.colSpan = 4;
+  tdDetail.appendChild(c.nature === "lignes" ? detailLignes(c) : detailDerive(c));
+  trDetail.appendChild(tdDetail);
+
+  tr.addEventListener("click", () => {
+    const ouvert = !trDetail.classList.contains("masque");
+    // Un seul detail ouvert a la fois : le tableau reste lisible.
+    document.querySelectorAll("#corps-cases tr.detail").forEach(x => x.classList.add("masque"));
+    document.querySelectorAll("#corps-cases tr.case-ligne").forEach(x => x.classList.remove("ouverte"));
+    if (!ouvert) { trDetail.classList.remove("masque"); tr.classList.add("ouverte"); }
+  });
+
+  const fragment = document.createDocumentFragment();
+  fragment.append(tr, trDetail);
+  return fragment;
+}
+
+function detailLignes(c) {
+  const t = document.createElement("table");
+  t.className = "sous";
+  const entete = document.createElement("tr");
+  for (const h of ["Date", "Tiers", "N° pièce", "Taux", "Base", "TVA", "Régime", ""]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    entete.appendChild(th);
+  }
+  t.appendChild(entete);
+  let sommeBase = 0, sommeTva = 0;
+  for (const l of c.lignes) {
+    const tr = document.createElement("tr");
+    sommeBase += l.base || 0;
+    sommeTva += l.tva || 0;
+    const cellules = [
+      l.date || "", l.tiers || "", l.num_facture || "",
+      l.taux === null || l.taux === undefined ? "" : (l.taux * 100).toFixed(0) + " %",
+      l.base === null ? "" : formatMontant(l.base),
+      l.tva === null ? "" : formatMontant(l.tva),
+      l.regime || "",
+    ];
+    cellules.forEach((v, i) => {
+      const td = document.createElement("td");
+      td.textContent = v;
+      if (i >= 3 && i <= 5) td.style.textAlign = "right";
+      tr.appendChild(td);
+    });
+    const tdLien = document.createElement("td");
+    if (l.manuelle) {
+      tdLien.textContent = "saisie manuelle";
+      tdLien.className = "discret";
+    } else {
+      const a = document.createElement("a");
+      a.href = "#";
+      a.textContent = "voir la facture";
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        window.open("/api/pdf?dossier=" + encodeURIComponent(dossierCourant)
+                    + "&sha=" + encodeURIComponent(l.sha256), "_blank");
+      });
+      tdLien.appendChild(a);
+    }
+    tr.appendChild(tdLien);
+    t.appendChild(tr);
+  }
+  const total = document.createElement("tr");
+  total.style.fontWeight = "600";
+  ["", "", "", "Total", formatMontant(sommeBase), formatMontant(sommeTva), "", ""]
+    .forEach((v, i) => {
+      const td = document.createElement("td");
+      td.textContent = v;
+      if (i >= 3 && i <= 5) td.style.textAlign = "right";
+      total.appendChild(td);
+    });
+  t.appendChild(total);
+  return t;
+}
+
+function detailDerive(c) {
+  const div = document.createElement("div");
+  const p = document.createElement("p");
+  p.className = "discret";
+  p.style.margin = "8px 0 6px";
+  p.textContent = "Cette case n'additionne aucune facture : elle se déduit "
+                + "d'autres cases du formulaire.";
+  div.appendChild(p);
+  const t = document.createElement("table");
+  t.className = "sous";
+  for (const d of c.derive) {
+    const tr = document.createElement("tr");
+    const source = casesCourantes.find(x => x.bloc === d.bloc && x.poste === d.poste);
+    const montant = source
+      ? (source.taxe !== null && source.taxe !== undefined ? source.taxe : source.base)
+      : null;
+    const signe = { "+": "plus", "-": "moins", "prorata": "× prorata" }[d.signe] || d.signe;
+    for (const [v, aDroite] of [[signe, false],
+                                 [source ? (source.case_taxe || source.case_base || "") : "", false],
+                                 [d.libelle, false],
+                                 [montant === null || montant === undefined ? "" : formatMontant(montant), true]]) {
+      const td = document.createElement("td");
+      td.textContent = v;
+      if (aDroite) td.style.textAlign = "right";
+      tr.appendChild(td);
+    }
+    t.appendChild(tr);
+  }
+  div.appendChild(t);
+  return div;
+}
 
 function previsualiserFichier(f) {
   const url = "/api/telecharger?dossier=" + encodeURIComponent(dossierCourant)
