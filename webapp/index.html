@@ -178,6 +178,19 @@
   }
   .puce.bloquant { background: #fef2f2; color: #991b1b; }
   .puce.revue { background: #fffbeb; color: #92400e; }
+
+  /* --- detail des cases ---------------------------------------------- */
+  #table-cases tr.case-ligne { cursor: pointer; }
+  #table-cases tr.case-ligne:hover td { background: #f9fafb; }
+  #table-cases tr.case-ligne.ouverte td { background: #eff6ff; font-weight: 600; }
+  #table-cases td.num { font-variant-numeric: tabular-nums; text-align: right;
+                        white-space: nowrap; }
+  #table-cases td.case-num { font-weight: 600; width: 60px; }
+  #table-cases tr.detail > td { background: #f9fafb; padding: 0 10px 10px; }
+  #table-cases table.sous { font-size: 12px; margin: 0; }
+  #table-cases table.sous th { background: transparent; padding: 4px 8px; }
+  #table-cases table.sous td { padding: 4px 8px; border-bottom: 1px solid #eceef2; }
+  .sans-detail { color: var(--discret); font-style: italic; }
   .retour { margin-bottom: 16px; }
 </style>
 </head>
@@ -461,6 +474,9 @@
 
   <div class="carte" id="bandeau-apercu">
     <span id="texte-apercu" class="discret">Détection en cours…</span>
+    <button id="bouton-arreter-lecture" class="masque" style="margin-left:12px;">
+      Interrompre la lecture
+    </button>
   </div>
 
   <div class="deux-colonnes">
@@ -475,6 +491,18 @@
         <button id="bouton-ajouter-transaction" style="margin-bottom:12px;">
           Ajouter une transaction…
         </button>
+
+        <div id="bloc-ecartes" class="masque"
+             style="border:1px solid var(--bordure); border-radius:8px;
+                    padding:12px 14px; margin-bottom:14px; background:var(--fond);">
+          <b style="font-size:13px;">Documents écartés de la lecture</b>
+          <p class="discret" style="margin:4px 0 8px;">
+            Rappels, relances et relevés de compte : ils ne portent pas de TVA
+            à déclarer, et les lire coûterait pour rien. Rien n'est supprimé —
+            si l'un d'eux est en réalité une facture, remets-le dans la liste.
+          </p>
+          <ul id="liste-ecartes" class="doublons"></ul>
+        </div>
         <div style="overflow-x:auto;">
           <table class="detection">
             <thead>
@@ -567,6 +595,19 @@
       <span id="chargement-xml" class="chargement masque">Contrôles en cours…</span>
       <div id="alerte-xml" class="alerte masque"></div>
       <p id="info-xml" class="discret masque"></p>
+    </div>
+
+    <div class="carte" style="margin: 18px 0;">
+      <h2>Détail des cases — d'où vient chaque montant</h2>
+      <p class="discret" style="margin-top:-8px;">
+        Clique une case pour voir ce qui la compose : les factures qui
+        l'alimentent, ou les autres cases dont elle se déduit. Rien n'est
+        recalculé ici — c'est la trace laissée par le moteur.
+      </p>
+      <div id="alerte-cases" class="alerte masque"></div>
+      <div style="overflow-x:auto;">
+        <table id="table-cases"><tbody id="corps-cases"></tbody></table>
+      </div>
     </div>
 
     <div class="deux-colonnes">
@@ -816,6 +857,7 @@ document.getElementById("bouton-inventaire").addEventListener("click", async () 
 
 function afficherResultats(data) {
   dossierCourant = document.getElementById("select-societe").value;
+  afficherEcartes(data.ecartes);
   document.getElementById("carte-resultats").classList.remove("masque");
   document.getElementById("c-uniques").textContent = data.nb_fichiers;
   document.getElementById("c-doublons").textContent = data.nb_doublons_ecartes;
@@ -899,8 +941,10 @@ async function allerEcran2() {
       return;
     }
     if (dl.total > 0) {
-      resumeLecture = "Lecture : " + dl.lues + " lue(s), " + dl.a_verifier +
-        " à vérifier sur " + dl.total + " facture(s). ";
+      // La lecture tourne dans le serveur : on suit son avancement et on
+      // affiche la detection au fur et a mesure, plutot que d'attendre
+      // une heure devant un ecran muet.
+      resumeLecture = await suivreLecture();
     }
     document.getElementById("texte-apercu").textContent = resumeLecture + "Détection en cours…";
   } catch (e) {
@@ -910,6 +954,91 @@ async function allerEcran2() {
 
   await rejouerDetection(resumeLecture);
 }
+
+
+// ---------------------------------------------------------------------
+// Lecture des factures : suivi de la tache de fond
+// ---------------------------------------------------------------------
+let arretDemande = false;
+
+
+// Documents ecartes : affiches avec leur motif, et reintegrables. Un
+// jugement automatique qui ne peut pas etre defait n'est pas acceptable.
+function afficherEcartes(ecartes) {
+  const bloc = document.getElementById("bloc-ecartes");
+  const liste = document.getElementById("liste-ecartes");
+  liste.innerHTML = "";
+  if (!ecartes || ecartes.length === 0) { bloc.classList.add("masque"); return; }
+  bloc.classList.remove("masque");
+  for (const e of ecartes) {
+    const li = document.createElement("li");
+    li.textContent = e.fichier + " — " + e.motif + " ";
+    const a = document.createElement("a");
+    a.href = "#";
+    a.textContent = "réintégrer";
+    a.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      await fetch("/api/reintegrer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossier: dossierCourant, sha256: e.sha256 }),
+      });
+      li.remove();
+      if (!liste.children.length) bloc.classList.add("masque");
+    });
+    li.appendChild(a);
+    liste.appendChild(li);
+  }
+}
+
+function texteAvancement(e) {
+  if (e.etat === "termine") {
+    return "Lecture terminée : " + e.lues + " lue(s), " + e.a_verifier +
+           " à vérifier sur " + e.total + ". ";
+  }
+  if (e.etat === "arrete") {
+    return "Lecture interrompue à " + e.faites + " sur " + e.total +
+           " — les factures déjà lues sont conservées. ";
+  }
+  return "Lecture " + e.faites + " sur " + e.total +
+         (e.courant ? " — " + e.courant : "") + "… ";
+}
+
+async function suivreLecture() {
+  arretDemande = false;
+  const bandeau = document.getElementById("texte-apercu");
+  const bouton = document.getElementById("bouton-arreter-lecture");
+  bouton.classList.remove("masque");
+  let dernierAffichage = 0;
+  try {
+    for (;;) {
+      const r = await fetch("/api/lecture-etat?dossier=" + encodeURIComponent(dossierCourant));
+      const e = await r.json();
+      if (e.etat === "inconnu") return "";
+      bandeau.textContent = texteAvancement(e);
+      if (e.etat !== "en_cours") return texteAvancement(e);
+      // Rafraichit le tableau toutes les 10 factures : on voit les lignes
+      // arriver sans rejouer la detection a chaque document.
+      if (e.faites - dernierAffichage >= 10) {
+        dernierAffichage = e.faites;
+        rejouerDetection(texteAvancement(e));
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } finally {
+    bouton.classList.add("masque");
+  }
+}
+
+document.getElementById("bouton-arreter-lecture").addEventListener("click", async () => {
+  if (!confirm("Interrompre la lecture ? Les factures déjà lues sont conservées.")) return;
+  arretDemande = true;
+  await fetch("/api/lecture-arreter", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dossier: dossierCourant }),
+  });
+});
 
 // Rejoue la seule DETECTION, sans relancer la lecture des factures : une
 // relecture couterait un appel au modele par facture, pour rien.

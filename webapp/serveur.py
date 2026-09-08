@@ -78,6 +78,89 @@ def choisir_dossier_natif(invite):
     return res.rstrip("/")
 
 
+class Lectures:
+    """Etat des lectures en cours, une par societe.
+
+    Vit dans le serveur, pas dans la page : fermer l'onglet, recharger ou
+    changer d'ecran n'interrompt rien. Chaque extraction est ecrite au fil
+    de l'eau par traiter_document, donc une interruption ne perd que la
+    facture en cours -- les precedentes restent acquises.
+    """
+
+    def __init__(self):
+        self._verrou = threading.Lock()
+        self._etats = {}
+
+    def demarrer(self, cle, dossier_abs, a_lire, commande_claude):
+        with self._verrou:
+            courant = self._etats.get(cle)
+            if courant and courant["etat"] == "en_cours":
+                return False
+            self._etats[cle] = {
+                "etat": "en_cours", "total": len(a_lire), "faites": 0,
+                "lues": 0, "a_verifier": 0, "courant": None,
+                "journal": [], "demarre_le": dt.datetime.now().isoformat(timespec="seconds"),
+                "_arret": False,
+            }
+        threading.Thread(target=self._boucle, daemon=True,
+                          args=(cle, dossier_abs, a_lire, commande_claude)).start()
+        return True
+
+    def _boucle(self, cle, dossier_abs, a_lire, commande_claude):
+        conf = lc.charger_conf(dossier_abs)
+        referentiel_txt = lc.referentiel_en_texte(dossier_abs)
+        taux_admis = conf.get("taux_admis", [0.0, 0.03, 0.08, 0.14, 0.17])
+        journal = JournalMemoire()
+        # Par LOTS : un appel a l'agent coute ~41 000 tokens de mise en route,
+        # quel que soit son contenu. Grouper 10 factures paie cette mise en
+        # route une fois pour dix au lieu de dix fois.
+        lots = [a_lire[i:i + lc.TAILLE_LOT]
+                for i in range(0, len(a_lire), lc.TAILLE_LOT)]
+        for lot in lots:
+            with self._verrou:
+                if self._etats[cle]["_arret"]:
+                    self._etats[cle]["etat"] = "arrete"
+                    return
+                self._etats[cle]["courant"] = ("lot de %d : %s…"
+                                                % (len(lot), lot[0]["fichier"]))
+            journal.lignes = []
+            try:
+                lues, a_verifier = lc.traiter_lot(
+                    commande_claude, dossier_abs, lot, referentiel_txt,
+                    taux_admis, journal)
+            except Exception as e:
+                journal.log("    erreur sur le lot : %s" % e)
+                lues, a_verifier = 0, len(lot)
+            with self._verrou:
+                e = self._etats[cle]
+                e["faites"] += len(lot)
+                e["lues"] += lues
+                e["a_verifier"] += a_verifier
+                # Journal borne : sur 90 factures, tout garder gonfle la
+                # reponse a chaque interrogation pour rien.
+                e["journal"] = (e["journal"] + journal.lignes)[-60:]
+        with self._verrou:
+            self._etats[cle]["etat"] = "termine"
+            self._etats[cle]["courant"] = None
+
+    def etat(self, cle):
+        with self._verrou:
+            e = self._etats.get(cle)
+            return None if e is None else {k: v for k, v in e.items()
+                                            if not k.startswith("_")}
+
+    def arreter(self, cle):
+        with self._verrou:
+            e = self._etats.get(cle)
+            if not e or e["etat"] != "en_cours":
+                return False
+            e["_arret"] = True
+            return True
+
+
+LECTURES = Lectures()
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # le journal du navigateur suffit ; pas de bruit dans le terminal
@@ -117,6 +200,10 @@ class Handler(BaseHTTPRequestHandler):
             self._api_societes()
         elif chemin == "/api/pdf":
             self._api_pdf(parse_qs(analyse.query))
+        elif chemin == "/api/lecture-etat":
+            self._api_lecture_etat(parse_qs(analyse.query))
+        elif chemin == "/api/cases":
+            self._api_cases(parse_qs(analyse.query))
         elif chemin == "/api/fichiers":
             self._api_fichiers(parse_qs(analyse.query))
         elif chemin == "/api/apercu-xlsx":
@@ -134,6 +221,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_inventaire()
         elif chemin == "/api/lecture":
             self._api_lecture()
+        elif chemin == "/api/lecture-arreter":
+            self._api_lecture_arreter()
         elif chemin == "/api/detection":
             self._api_detection()
         elif chemin == "/api/corriger":
@@ -154,6 +243,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_quitter()
         elif chemin == "/api/societe":
             self._api_creer_societe()
+        elif chemin == "/api/reintegrer":
+            self._api_reintegrer()
         elif chemin == "/api/transaction":
             self._api_ajouter_transaction()
         else:
@@ -191,6 +282,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
             return
         self._json({"ok": True, "dossier": valeurs["code"], "fichier": chemin})
+
+    def _api_reintegrer(self):
+        corps = self._lire_corps_json()
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        societe = societes.get(corps.get("dossier"))
+        if not societe or not corps.get("sha256"):
+            self._json({"erreur": "societe ou document manquant"}, code=400)
+            return
+        ok = reintegrer_ecarte(societe["chemin"], corps["sha256"])
+        self._json({"ok": ok})
 
     def _api_ajouter_transaction(self):
         corps = self._lire_corps_json()
@@ -255,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         # etape_inventaire reecrit _inventaire.json en entier : les
         # transactions saisies a la main en disparaitraient. On les remet.
+        # Avant toute lecture : sortir les rappels de paiement. Les lire
+        # couterait des jetons pour un document qui ne porte pas de TVA.
+        rappels = ecarter_rappels(dossier_abs)
         nb_manuelles = injecter_manuelles(dossier_abs)
         inv = lc.lire_inventaire(dossier_abs)
         nb_natifs = sum(1 for d in inv["documents"] if d["type"] == "natif")
@@ -268,6 +372,9 @@ class Handler(BaseHTTPRequestHandler):
             "nb_scans": nb_scans,
             "nb_manuelles": nb_manuel,
             "manuelles_reinjectees": nb_manuelles,
+            "ecartes": [{"sha256": e["sha256"], "fichier": e["fichier"],
+                          "motif": e["motif"]} for e in lire_ecartes(dossier_abs)],
+            "nouvellement_ecartes": len(rappels),
             "doublons": inv["doublons"],
             "documents": [
                 {"fichier": d["fichier"], "sens_chemin": d.get("sens_chemin"),
@@ -277,6 +384,57 @@ class Handler(BaseHTTPRequestHandler):
         })
 
     def _api_lecture(self):
+        """Demarre la lecture des factures en TACHE DE FOND et rend la main.
+
+        Lire 67 factures prend plus d'une heure : les enchainer dans une
+        seule requete HTTP condamnait le navigateur a attendre sans rien
+        afficher, puis a abandonner. La lecture tourne donc a part, et la
+        page interroge /api/lecture-etat pour montrer l'avancement. Fermer
+        l'onglet n'interrompt rien : l'etat vit dans le serveur, et chaque
+        extraction est ecrite au fil de l'eau.
+        """
+        corps = self._lire_corps_json()
+        dossier_nom = corps.get("dossier")
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        if dossier_nom not in societes:
+            self._json({"erreur": "societe inconnue : %r" % dossier_nom}, code=400)
+            return
+        dossier_abs = societes[dossier_nom]["chemin"]
+        if not os.path.isfile(os.path.join(dossier_abs, "extraction", "_inventaire.json")):
+            self._json({"erreur": "Lance d'abord l'inventaire."}, code=400)
+            return
+        inv = lc.lire_inventaire(dossier_abs)
+        a_lire = [d for d in inv["documents"] if not lc.deja_extrait(dossier_abs, d)]
+        if not a_lire:
+            self._json({"etat": "termine", "total": 0, "lues": 0,
+                         "a_verifier": 0, "journal": []})
+            return
+        commande_claude = lc.trouver_commande_claude()
+        if not commande_claude:
+            self._json({"erreur": lc.MESSAGE_CLAUDE_ABSENT,
+                         "a_lire": len(a_lire)}, code=400)
+            return
+        demarre = LECTURES.demarrer(dossier_nom, dossier_abs, a_lire, commande_claude)
+        if not demarre:
+            self._json({"erreur": "Une lecture est déjà en cours pour cette société."},
+                        code=409)
+            return
+        self._json(LECTURES.etat(dossier_nom))
+
+    def _api_lecture_etat(self, query):
+        dossier_nom = (query.get("dossier") or [None])[0]
+        etat = LECTURES.etat(dossier_nom)
+        if etat is None:
+            self._json({"etat": "inconnu"})
+            return
+        self._json(etat)
+
+    def _api_lecture_arreter(self):
+        corps = self._lire_corps_json()
+        arrete = LECTURES.arreter(corps.get("dossier"))
+        self._json({"ok": arrete})
+
+    def _api_lecture_synchrone(self):
         """Lit les factures pas encore extraites, via Claude Code en mode non
         interactif -- meme mecanisme que lancer_campagne.py, reutilise tel
         quel (construction du prompt, validation, ecriture ou mise de cote).
@@ -538,6 +696,67 @@ class Handler(BaseHTTPRequestHandler):
             return
         infos["fichier"] = os.path.basename(chemin)
         self._json(infos)
+
+    def _api_cases(self, query):
+        """Les cases de la periode, avec de quoi chaque montant est fait.
+
+        Rien n'est recalcule : on recharge l'instantane et on rappelle
+        annexes_tva.agreger, qui porte desormais la trace des lignes et des
+        cases contributrices. Cette API ne fait que la mettre en forme.
+        """
+        dossier_nom = (query.get("dossier") or [None])[0]
+        periode = (query.get("periode") or [None])[0]
+        societes = {s["dossier"]: s for s in lc.lister_dossiers()}
+        if dossier_nom not in societes or not periode:
+            self._json({"erreur": "societe ou periode manquante"}, code=400)
+            return
+        sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
+        try:
+            import replique_ecdf
+            declare, _ = replique_ecdf.dernier_declare(sortie)
+        except Exception as e:
+            self._json({"erreur": "instantané illisible : %s" % e}, code=400)
+            return
+        if declare is None:
+            self._json({"erreur": "Génère d'abord les annexes pour cette période."},
+                        code=400)
+            return
+        nom_profil, profil, postes, agr = replique_ecdf.construire_postes(declare, REPO)
+
+        # Index des lignes de l'instantane par (empreinte, taux) : c'est la
+        # cle que le moteur inscrit dans chaque case.
+        index = {}
+        for l in declare["lignes"]:
+            index[(l.get("sha256"), l.get("taux"))] = l
+
+        libelles = {(c["bloc"], c["poste"]): c["libelle"] for c in agr["cases"]}
+        cases = []
+        for c in agr["cases"]:
+            detail = [index[tuple(k)] for k in c.get("lignes") or []
+                      if tuple(k) in index]
+            cases.append({
+                "bloc": c["bloc"], "poste": c["poste"], "libelle": c["libelle"],
+                "case_base": c.get("case_base"), "base": c.get("base"),
+                "case_taxe": c.get("case_taxe"), "taxe": c.get("taxe"),
+                "nature": ("lignes" if c.get("lignes")
+                            else "derive" if c.get("derive") else "aucune"),
+                "lignes": [{
+                    "date": l.get("date"), "tiers": l.get("tiers"),
+                    "num_facture": l.get("num_facture"), "taux": l.get("taux"),
+                    "base": l.get("base"), "tva": l.get("tva"),
+                    "regime": l.get("regime"), "sens": l.get("sens"),
+                    "fichier": l.get("fichier"), "sha256": l.get("sha256"),
+                    # Une saisie manuelle n'a pas de PDF a ouvrir.
+                    "manuelle": bool(l.get("saisie_manuelle")),
+                } for l in detail],
+                "derive": [{
+                    "bloc": b, "poste": po, "signe": si,
+                    "libelle": libelles.get((b, po), po),
+                } for b, po, si in (c.get("derive") or [])],
+            })
+        self._json({"periode": declare["periode"],
+                     "periode_libelle": declare.get("periode_libelle"),
+                     "profil": nom_profil, "cases": cases})
 
     def _api_fichiers(self, query):
         """Relit la liste des livrables presents. Sert a rafraichir l'ecran 3
@@ -981,6 +1200,82 @@ def injecter_manuelles(dossier_abs):
         inv["nb_fichiers"] = len(inv["documents"])
         _ecrire_json(chemin_inv, inv)
     return ajoutees
+
+
+FICHIER_ECARTES = "_ecartes.json"
+
+
+def lire_ecartes(dossier_abs):
+    p = os.path.join(_dossier_extraction(dossier_abs), FICHIER_ECARTES)
+    if not os.path.isfile(p):
+        return []
+    try:
+        with io.open(p, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def ecarter_rappels(dossier_abs):
+    """Sort les rappels de l'inventaire, avant toute lecture.
+
+    Ils sont RETIRES de _inventaire.json -- sans quoi le moteur les
+    compterait comme "extraction absente", donc en exception bloquante --
+    et conserves dans _ecartes.json avec leur motif, pour rester visibles
+    et reintegrables. Rien n'est supprime, rien n'est silencieux.
+    """
+    ext = _dossier_extraction(dossier_abs)
+    chemin_inv = os.path.join(ext, "_inventaire.json")
+    if not os.path.isfile(chemin_inv):
+        return []
+    with io.open(chemin_inv, encoding="utf-8") as f:
+        inv = json.load(f)
+    ecartes = lire_ecartes(dossier_abs)
+    deja = {e["sha256"] for e in ecartes}
+    gardes, nouveaux = [], []
+    for d in inv.get("documents", []):
+        # Une saisie manuelle n'est jamais un rappel, et un document deja
+        # lu n'a pas a etre rejuge.
+        if d.get("type") == "manuel" or lc.deja_extrait(dossier_abs, d):
+            gardes.append(d); continue
+        texte = lc.texte_extrait(dossier_abs, d)
+        rappel, motif = lc.est_rappel(d.get("fichier"), texte)
+        if rappel and d["sha256"] not in deja:
+            nouveaux.append({"sha256": d["sha256"], "fichier": d["fichier"],
+                              "motif": motif, "entree_inventaire": d,
+                              "ecarte_le": dt.datetime.now().isoformat(timespec="seconds")})
+        elif rappel:
+            pass  # deja connu comme ecarte : on ne le remet pas dans l'inventaire
+        else:
+            gardes.append(d)
+    if nouveaux:
+        ecartes += nouveaux
+        _ecrire_json(os.path.join(ext, FICHIER_ECARTES), ecartes)
+    if len(gardes) != len(inv.get("documents", [])):
+        inv["documents"] = gardes
+        inv["nb_fichiers"] = len(gardes)
+        _ecrire_json(chemin_inv, inv)
+    return nouveaux
+
+
+def reintegrer_ecarte(dossier_abs, sha):
+    """Remet un document ecarte dans l'inventaire. Le jugement automatique
+    doit pouvoir etre defait : c'est ce qui rend l'ecartement acceptable."""
+    ext = _dossier_extraction(dossier_abs)
+    ecartes = lire_ecartes(dossier_abs)
+    cible = next((e for e in ecartes if e["sha256"] == sha), None)
+    if cible is None:
+        return False
+    chemin_inv = os.path.join(ext, "_inventaire.json")
+    with io.open(chemin_inv, encoding="utf-8") as f:
+        inv = json.load(f)
+    if not any(d["sha256"] == sha for d in inv.get("documents", [])):
+        inv.setdefault("documents", []).append(cible["entree_inventaire"])
+        inv["nb_fichiers"] = len(inv["documents"])
+        _ecrire_json(chemin_inv, inv)
+    _ecrire_json(os.path.join(ext, FICHIER_ECARTES),
+                  [e for e in ecartes if e["sha256"] != sha])
+    return True
 
 
 def valider_transaction(corps, conf):

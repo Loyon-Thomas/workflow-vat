@@ -470,6 +470,236 @@ def ecrire_a_verifier(dossier_abs, doc, raison):
                     dt.datetime.now().isoformat(timespec="seconds")))
 
 
+# ---------------------------------------------------------------------
+# Lecture par LOT
+#
+# Pourquoi : un appel a `claude -p`, meme trivial, coute ~41 000 tokens de
+# mise en route (prompt systeme de l'agent, definitions d'outils, contexte)
+# -- mesure faite le 08/09/2026 sur un appel "reponds OK". Le contenu utile
+# d'une facture pese ~900 tokens. Lancer un appel PAR facture revient donc a
+# payer 45 fois le contenant pour le contenu.
+#
+# Deux economies, cumulables :
+#   1. grouper N factures dans un seul appel : le cout de mise en route est
+#      paye une fois pour N au lieu de N fois ;
+#   2. passer le TEXTE deja extrait par pdftotext a l'inventaire, au lieu de
+#      donner un chemin et de laisser l'agent ouvrir le fichier lui-meme --
+#      cela supprime un aller-retour d'outil par facture.
+#
+# Le repli est explicite : si la reponse d'un lot n'est pas exploitable, on
+# reprend ce lot facture par facture. Un lot rate ne fait donc perdre que du
+# temps, jamais une facture.
+# ---------------------------------------------------------------------
+
+TAILLE_LOT = 10
+
+# ---------------------------------------------------------------------
+# Documents ecartes de la lecture
+#
+# Un rappel de paiement, une relance ou un releve de compte n'est pas une
+# facture : il ne cree aucun droit a deduction et ne porte pas de TVA a
+# declarer. Le lire coute des jetons pour un resultat qui sera de toute
+# facon rejete.
+#
+# PRUDENCE : ecarter a tort une VRAIE facture ferait sous-declarer, ce qui
+# est bien plus grave que de lire un rappel pour rien. Deux garde-fous :
+#   1. le motif doit apparaitre en TETE du document (les 800 premiers
+#      caracteres), la ou vit le titre -- pas au detour d'une phrase du
+#      genre "rappel de votre reference client" ;
+#   2. le document ne doit porter AUCUNE marque de TVA. Un rappel qui
+#      detaille une TVA est peut-etre une facture : on le lit.
+# Et rien n'est silencieux : les documents ecartes sont listes avec leur
+# motif, et peuvent etre reintegres d'un clic.
+# ---------------------------------------------------------------------
+
+MOTIFS_RAPPEL = re.compile(
+    r"\b(rappel|relance|mise en demeure|reminder|payment reminder|"
+    r"dunning|overdue|statement of account|releve de compte)\b", re.I)
+
+# Marques d'une facture veritable : si elles sont presentes, on ne pretend
+# pas trancher a la place du modele.
+MARQUES_TVA = re.compile(
+    r"\b(tva|vat|mwst|btw)\b|\b\d{1,2}[,.]\d{2}\s*%|\bLU\d{8}\b", re.I)
+
+ENTETE = 800
+
+
+def est_rappel(nom_fichier, texte):
+    """(True, motif) si le document est un rappel a ecarter, sinon (False, None)."""
+    tete = (texte or "")[:ENTETE]
+    dans_nom = MOTIFS_RAPPEL.search(nom_fichier or "")
+    dans_tete = MOTIFS_RAPPEL.search(tete)
+    if not (dans_nom or dans_tete):
+        return False, None
+    # Un document sans texte (scan) ne peut etre juge que sur son nom : on
+    # exige alors que le nom soit explicite, faute de pouvoir verifier.
+    if texte and MARQUES_TVA.search(tete):
+        return False, None
+    trouve = (dans_nom or dans_tete).group(0)
+    ou = "nom du fichier" if dans_nom else "en-tete du document"
+    return True, "rappel / relance detecte (%s : « %s »), sans marque de TVA" % (ou, trouve)
+
+
+
+def texte_extrait(dossier_abs, doc):
+    """Texte produit par pdftotext a l'inventaire, ou None pour un scan."""
+    if not doc.get("texte"):
+        return None
+    chemin = os.path.join(dossier_abs, "extraction", "textes", doc["texte"])
+    if not os.path.isfile(chemin):
+        return None
+    try:
+        with open(chemin, encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return None
+
+
+def construire_prompt_lot(paires, referentiel_txt, taux_admis):
+    """paires : [(doc, texte)]. Le referentiel et le schema ne sont ecrits
+    qu'UNE fois pour tout le lot -- c'est la moitie de l'economie."""
+    schema = """{
+  "id": "l'identifiant du document, repris tel quel",
+  "sens": "achat" ou "vente",
+  "emetteur": "...", "emetteur_tva": "LUxxxxxxxx ou null",
+  "destinataire": "...", "destinataire_tva": "LUxxxxxxxx ou null",
+  "tiers": "nom court du tiers (l'autre partie que la societe elle-meme)",
+  "tva_tiers": "numero de TVA du tiers, ou null",
+  "pays": "code pays ISO2 du tiers",
+  "num_facture": "tel qu'imprime sur la facture",
+  "date": "AAAA-MM-JJ (date d'EMISSION de la facture)",
+  "devise": "EUR ou autre code devise",
+  "taux_change": 1.0,
+  "total_ttc": 0.00,
+  "regime": "un des regimes admis ci-dessous",
+  "source_extraction": "texte",
+  "lignes": [ { "taux": 0.17, "base": 100.00, "tva": 17.00, "description": "..." } ]
+}"""
+    morceaux = [
+        "Tu extrais %d factures vers du JSON structure, dans un pipeline de "
+        "declaration TVA luxembourgeoise." % len(paires),
+        "",
+        "Le texte de chaque document t'est donne ci-dessous : n'ouvre AUCUN "
+        "fichier, tout est deja la.",
+        "",
+        "Reponds avec UN SEUL tableau JSON, un objet par document, dans "
+        "l'ordre, rien d'autre autour (pas de markdown, pas d'introduction). "
+        "Chaque objet suit exactement ce schema :",
+        "",
+        schema,
+        "",
+        "Regimes admis : " + ", ".join(REGIMES_ADMIS) + ".",
+        "Taux de TVA admis au Luxembourg : "
+        + ", ".join(str(x) for x in taux_admis) + ".",
+        "La TVA reprise sur chaque ligne doit etre celle FACTUREE, "
+        "pas un calcul base*taux.",
+        "",
+        "Pour un document que tu ne peux pas extraire de facon fiable (champ "
+        "obligatoire absent, contenu contradictoire, piece qui n'est pas une "
+        "facture), NE DEVINE AUCUNE VALEUR : mets pour ce document un objet "
+        '{\"id\": \"...\", \"echec\": \"raison courte\"}. Les autres '
+        "documents du lot doivent quand meme etre extraits.",
+    ]
+    if referentiel_txt:
+        morceaux += ["", "Referentiel des tiers connus de cette societe (aide a "
+                      "la qualification, ne remplace pas ta lecture) :",
+                      referentiel_txt]
+    for doc, texte in paires:
+        morceaux += ["", "=" * 60,
+                      "DOCUMENT id=%s  (nom du fichier : %s)" % (doc["sha256"][:12],
+                                                                  doc["fichier"]),
+                      "=" * 60, texte]
+    return "\n".join(morceaux)
+
+
+def lire_lot_claude(commande_claude, paires, referentiel_txt, taux_admis,
+                     timeout=600):
+    prompt = construire_prompt_lot(paires, referentiel_txt, taux_admis)
+    try:
+        r = subprocess.run([commande_claude, "-p", prompt],
+                            capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        return None, "commande claude introuvable : %s" % commande_claude
+    except subprocess.TimeoutExpired:
+        return None, "delai de lecture du lot depasse"
+    if r.returncode != 0:
+        return None, "echec claude : %s" % (r.stderr.strip() or "erreur inconnue")
+    return r.stdout.strip(), None
+
+
+def extraire_tableau(reponse):
+    """Le tableau JSON de la reponse, indexe par id."""
+    debut, fin = reponse.find("["), reponse.rfind("]")
+    if debut == -1 or fin == -1 or fin < debut:
+        return None, "reponse non exploitable (pas de tableau JSON)"
+    try:
+        objets = json.loads(reponse[debut:fin + 1])
+    except json.JSONDecodeError as e:
+        return None, "JSON invalide : %s" % e
+    if not isinstance(objets, list):
+        return None, "la reponse n'est pas un tableau"
+    return {str(o.get("id")): o for o in objets if isinstance(o, dict)}, None
+
+
+def traiter_lot(commande_claude, dossier_abs, docs, referentiel_txt, taux_admis,
+                 journal):
+    """Traite un lot en un appel. Renvoie (n_lues, n_a_verifier).
+
+    Repli : si la reponse du lot est inexploitable, le lot est repris facture
+    par facture -- plus cher, mais aucune facture n'est perdue.
+    """
+    paires = []
+    for doc in docs:
+        texte = texte_extrait(dossier_abs, doc)
+        if texte:
+            paires.append((doc, texte))
+    # Les scans n'ont pas de texte : ils gardent la lecture individuelle,
+    # par vision, tant qu'ils ne sont pas passes a l'OCR.
+    sans_texte = [d for d in docs if not any(d is p[0] for p in paires)]
+
+    lues = a_verifier = 0
+    if paires:
+        reponse, err = lire_lot_claude(commande_claude, paires, referentiel_txt,
+                                        taux_admis)
+        par_id, err2 = (None, err) if err else extraire_tableau(reponse)
+        if err2:
+            journal.log("    lot inexploitable (%s) — reprise une par une" % err2)
+            for doc, _ in paires:
+                if traiter_document(commande_claude, dossier_abs, doc,
+                                     referentiel_txt, taux_admis, journal):
+                    lues += 1
+                else:
+                    a_verifier += 1
+        else:
+            for doc, _ in paires:
+                objet = par_id.get(doc["sha256"][:12])
+                if objet is None:
+                    raison = "absent de la reponse du lot"
+                elif objet.get("echec"):
+                    raison = str(objet["echec"])
+                else:
+                    raison = valider_extraction(objet)
+                    raison = ("reponse invalide : %s" % raison) if raison else None
+                if raison:
+                    ecrire_a_verifier(dossier_abs, doc, raison)
+                    journal.log("    a verifier : %s (%s)" % (doc["fichier"], raison))
+                    a_verifier += 1
+                else:
+                    objet.pop("id", None)
+                    with open(chemin_extraction(dossier_abs, doc), "w",
+                               encoding="utf-8") as f:
+                        json.dump(objet, f, ensure_ascii=False, indent=2)
+                    journal.log("    lu : %s" % doc["fichier"])
+                    lues += 1
+    for doc in sans_texte:
+        if traiter_document(commande_claude, dossier_abs, doc, referentiel_txt,
+                             taux_admis, journal):
+            lues += 1
+        else:
+            a_verifier += 1
+    return lues, a_verifier
+
+
 def traiter_document(commande_claude, dossier_abs, doc, referentiel_txt, taux_admis, journal):
     """Lit une facture via Claude Code et n'ecrit son JSON que si la reponse
     est exploitable ; renvoie True si lu, False si mis de cote (A_VERIFIER)."""

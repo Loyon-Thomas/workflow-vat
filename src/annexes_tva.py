@@ -524,13 +524,25 @@ def agreger(valides, prorata_pct, origine_prorata, profil, ca_total, ca_droit, p
     tva_aval = r2(tva_ventes + tva_autoliq)
 
     cases, non_mappes = [], []
-    def push(bloc, cle, base=None, taxe=None, etiquette=None):
+    def push(bloc, cle, base=None, taxe=None, etiquette=None,
+             lignes=None, derive=None):
         m = (profil.get(bloc) or {}).get(cle)
         if not m:
             non_mappes.append((etiquette or cle, base, taxe)); return
         cases.append({"bloc": bloc, "poste": cle, "libelle": m["libelle"],
                       "case_base": m.get("base"), "base": base,
-                      "case_taxe": m.get("taxe"), "taxe": taxe})
+                      "case_taxe": m.get("taxe"), "taxe": taxe,
+                      # De quoi ce montant est-il fait ? Deux natures, jamais
+                      # les deux a la fois :
+                      #   "lignes" - empreintes des factures qui l'alimentent
+                      #   "derive" - autres postes dont il est calcule
+                      # C'est une TRACE de ce qui a deja servi au calcul, pas
+                      # un calcul de plus. Rien ici ne change un montant.
+                      # (empreinte, taux) et non l'empreinte seule : une
+                      # facture a plusieurs taux donne plusieurs lignes, et
+                      # une case filtree par taux n'en retient qu'une.
+                      "lignes": [[v["sha256"], v["taux"]] for v in (lignes or [])],
+                      "derive": list(derive or [])})
 
     def somme(regs, taux=None):
         s = [v for v in ventes if v["regime"] in regs
@@ -540,9 +552,11 @@ def agreger(valides, prorata_pct, origine_prorata, profil, ca_total, ca_droit, p
     # --- I. chiffre d'affaires ---------------------------------------
     ca_periode = r2(sum(v["base"] for v in ventes))
     taxable = r2(sum(v["base"] for v in ventes if v["regime"] == "vente_lu"))
-    push("turnover", "ca_global", ca_periode)
-    push("turnover", "total_exonerations", r2(ca_periode - taxable))
-    push("turnover", "ca_taxable", taxable)
+    push("turnover", "ca_global", ca_periode, lignes=ventes)
+    push("turnover", "total_exonerations", r2(ca_periode - taxable),
+         derive=[("turnover", "ca_global", "+"), ("turnover", "ca_taxable", "-")])
+    push("turnover", "ca_taxable", taxable,
+         lignes=[v for v in ventes if v["regime"] == "vente_lu"])
     for reg, cle in [("livraison_intracom", "livraisons_intracom"),
                      ("export", "exportations"),
                      ("exonere_art44", "exonerations_art44"),
@@ -550,17 +564,17 @@ def agreger(valides, prorata_pct, origine_prorata, profil, ca_total, ca_droit, p
                      ("hors_ue", "operations_lieu_etranger")]:
         s, b, _ = somme([reg])
         if s:
-            push("turnover", cle, b, None, "vente / regime '%s'" % reg)
+            push("turnover", cle, b, None, "vente / regime '%s'" % reg, lignes=s)
 
     # --- II. taxe due -------------------------------------------------
     s, b, t = somme(["vente_lu"])
     if s:
-        push("aval", "ventes_lu_total", b, t)
+        push("aval", "ventes_lu_total", b, t, lignes=s)
     for taux, cle in [(0.17, "ventes_lu_17"), (0.14, "ventes_lu_14"),
                       (0.08, "ventes_lu_08"), (0.03, "ventes_lu_03")]:
         s, b, t = somme(["vente_lu"], taux)
         if s:
-            push("aval", cle, b, t)
+            push("aval", cle, b, t, lignes=s)
 
     def sommeA(regs, taux=None):
         s = [v for v in valides if v["regime"] in regs
@@ -573,39 +587,61 @@ def agreger(valides, prorata_pct, origine_prorata, profil, ca_total, ca_droit, p
                       (("service_autoliq_tiers",), "services_recus_tiers_total")]:
         s, b, t = sommeA(regs)
         if s:
-            push("autoliquidation", cle, b, t)
+            push("autoliquidation", cle, b, t, lignes=s)
     for reg, cle in [("acq_intracom", "acq_intracom_17"), ("import", "importations_17"),
                      ("service_autoliq", "services_ue_17"),
                      ("service_autoliq_tiers", "services_tiers_17")]:
         s, b, t = sommeA((reg,), 0.17)
         if s:
-            push("autoliquidation", cle, b, t)
+            push("autoliquidation", cle, b, t, lignes=s)
 
     # --- III / IV -----------------------------------------------------
     # --- III. ventilation de la TVA en amont --------------------------
     def tva_de(regs):
-        return r2(sum(v["tva"] for v in achats if v["regime"] in regs))
-    push("amont", "tva_amont_totale", None, tva_amont)
+        s = [v for v in achats if v["regime"] in regs]
+        return s, r2(sum(v["tva"] for v in s))
+    push("amont", "tva_amont_totale", None, tva_amont, lignes=achats)
     # Ventilation par origine : presente au DECM (458/459/460/461). Le DECA
     # ventile par NATURE de depense (stock 077 / immobilisations 081 / frais
     # generaux 085), que le moteur ne peut pas deduire d'une facture : ces
     # postes y ressortent explicitement comme a ventiler a la main.
-    push("amont", "tva_amont_facturee", None, tva_de(("achat_lu", "exonere_art44")),
-         "TVA facturee par des assujettis - a ventiler stock 077 / immo 081 / frais 085")
-    push("amont", "tva_amont_acq_intracom", None, tva_de(("acq_intracom",)),
-         "TVA sur acquisitions intracom - a ventiler stock 078 / immo 082 / frais 086")
-    push("amont", "tva_amont_importations", None, tva_de(("import",)),
-         "TVA sur importations - a ventiler stock 079 / immo 083 / frais 087")
-    push("amont", "tva_amont_reverse_charge", None,
-         tva_de(("service_autoliq", "service_autoliq_tiers")),
-         "TVA autoliquidee - a ventiler stock 404 / immo 405 / frais 406")
-    push("amont", "prorata_non_recuperable", None, tva_nd)
-    push("amont", "tva_amont_non_deductible", None, tva_nd)
-    push("amont", "tva_amont_deductible", None, tva_deduc)
-    push("solde", "total_taxe_due", None, tva_aval)
-    push("solde", "total_aval", None, tva_aval)
-    push("solde", "total_amont_deductible", None, tva_deduc)
-    push("solde", "excedent", None, r2(tva_aval - tva_deduc))
+    s, v = tva_de(("achat_lu", "exonere_art44"))
+    push("amont", "tva_amont_facturee", None, v,
+         "TVA facturee par des assujettis - a ventiler stock 077 / immo 081 / frais 085",
+         lignes=s)
+    s, v = tva_de(("acq_intracom",))
+    push("amont", "tva_amont_acq_intracom", None, v,
+         "TVA sur acquisitions intracom - a ventiler stock 078 / immo 082 / frais 086",
+         lignes=s)
+    s, v = tva_de(("import",))
+    push("amont", "tva_amont_importations", None, v,
+         "TVA sur importations - a ventiler stock 079 / immo 083 / frais 087",
+         lignes=s)
+    s, v = tva_de(("service_autoliq", "service_autoliq_tiers"))
+    push("amont", "tva_amont_reverse_charge", None, v,
+         "TVA autoliquidee - a ventiler stock 404 / immo 405 / frais 406",
+         lignes=s)
+    # Ces postes ne somment aucune ligne : ils se deduisent d'autres cases.
+    # Le clic doit donc montrer les cases contributrices, pas des factures.
+    push("amont", "prorata_non_recuperable", None, tva_nd,
+         derive=[("amont", "tva_amont_totale", "prorata")])
+    push("amont", "tva_amont_non_deductible", None, tva_nd,
+         derive=[("amont", "prorata_non_recuperable", "+")])
+    push("amont", "tva_amont_deductible", None, tva_deduc,
+         derive=[("amont", "tva_amont_totale", "+"),
+                 ("amont", "tva_amont_non_deductible", "-")])
+    push("solde", "total_taxe_due", None, tva_aval,
+         derive=[("aval", "ventes_lu_total", "+"),
+                 ("autoliquidation", "acq_intracom_total", "+"),
+                 ("autoliquidation", "importations_total", "+"),
+                 ("autoliquidation", "services_recus_total", "+")])
+    push("solde", "total_aval", None, tva_aval,
+         derive=[("solde", "total_taxe_due", "+")])
+    push("solde", "total_amont_deductible", None, tva_deduc,
+         derive=[("amont", "tva_amont_deductible", "+")])
+    push("solde", "excedent", None, r2(tva_aval - tva_deduc),
+         derive=[("solde", "total_aval", "+"),
+                 ("solde", "total_amont_deductible", "-")])
 
     connus = {"vente_lu", "livraison_intracom", "export", "exonere_art44",
               "service_ue_rendu", "hors_ue"}
