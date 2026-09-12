@@ -75,20 +75,42 @@ def chemin_depots(dossier_abs):
     return os.path.join(dossier_abs, "depots.json")
 
 
+class DepotsIllisibles(RuntimeError):
+    """depots.json present mais inexploitable. Jamais avale : un statut de
+    depot qu'on ne sait pas lire ne doit pas passer pour 'non depose'."""
+
+
 def lire_depots(dossier_abs):
     p = chemin_depots(dossier_abs)
     if not os.path.isfile(p):
         return {}
     try:
         with open(p, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+            depots = json.load(f)
+    except Exception as e:
+        raise DepotsIllisibles("%s illisible : %s" % (p, e))
+    if not isinstance(depots, dict):
+        raise DepotsIllisibles("%s : un objet est attendu, pas %s"
+                                % (p, type(depots).__name__))
+    return depots
 
 
 def statut_depot(dossier_abs, periode):
-    """Renvoie le dictionnaire de depot de la periode, ou None si non deposee."""
-    return lire_depots(dossier_abs).get(periode)
+    """Statut de depot de la periode, ou None si non deposee.
+
+    STRICT a dessein. Le filigrane etait pilote par `depot is None` a un
+    endroit et par `if depot` a un autre : une entree vide ({}, null, "")
+    faisait donc DISPARAITRE le filigrane pendant que le tableau imprimait
+    « NON DEPOSEE ». Un brouillon partait au client avec l'apparence d'un
+    document definitif.
+    On n'admet desormais qu'un depot complet : un objet portant une date.
+    Tout le reste vaut non depose -- le sens sur -- et les deux tests
+    concordent alors, quelle que soit leur forme.
+    """
+    entree = lire_depots(dossier_abs).get(periode)
+    if not isinstance(entree, dict) or not entree.get("depose_le"):
+        return None
+    return entree
 
 
 def marquer_depose(dossier_abs, periode, reference=None, note=None):

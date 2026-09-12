@@ -321,9 +321,14 @@ def generer_xml(dossier_abs, dossier_sortie, repo=REPO, declare=None):
     # nom existe deja dans le dossier de sortie.
     quand = dt.datetime.now()
     prefixe = str(cfg.get("prefixe_agent") or "000000")
+    # Le nom exact impose par eCDF n'est merite que par un fichier reellement
+    # deposable ; un fichier de test le porterait a tort, a cote du vrai.
+    pret_nom = (str(cfg.get("interface") or "") not in ("", "IIIII")
+                and str(cfg.get("prefixe_agent") or "000000") != "000000")
     for sequence in range(1, 100):
         reference = reference_fichier(prefixe, quand, sequence)
-        chemin = os.path.join(dossier_sortie, reference + ".xml")
+        chemin = os.path.join(dossier_sortie,
+                               ("" if pret_nom else "BROUILLON-") + reference + ".xml")
         if not os.path.exists(chemin):
             break
     else:
@@ -332,6 +337,21 @@ def generer_xml(dossier_abs, dossier_sortie, repo=REPO, declare=None):
     racine, type_decl, annee, periode_num = construire_arbre(
         declare, conf_societe, cfg, champs, reference)
     texte = serialiser(racine)
+
+    # Un fichier produit avec des parametres eCDF de gabarit ne peut PAS etre
+    # depose : il sert a eprouver la structure. Rien ne le distinguait
+    # pourtant du vrai -- ni son nom, ni son contenu. C'est le seul livrable
+    # qui partait a l'administration sans equivalent du filigrane BROUILLON.
+    # On lui donne donc les deux : un commentaire XML (ignore par tout
+    # analyseur, donc sans effet sur la validation) et un nom prefixe.
+    pret = (str(cfg.get("interface") or "") not in ("", "IIIII")
+            and prefixe != "000000")
+    if not pret:
+        texte = texte.replace(
+            "?>",
+            "?>\n<!-- BROUILLON - NON DEPOSABLE : parametres eCDF de gabarit "
+            "(interface=%s, prefixe agent=%s). Fichier produit pour eprouver "
+            "la structure. -->" % (cfg.get("interface"), prefixe), 1)
 
     erreurs_xsd = valider_xsd(texte)
     ecarts = controle_coherence(texte, attendus)

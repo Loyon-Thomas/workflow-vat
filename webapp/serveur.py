@@ -323,6 +323,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_xml()
         elif chemin == "/api/declaration":
             self._api_declaration()
+        elif chemin == "/api/depot":
+            self._api_depot()
         elif chemin == "/api/generer":
             self._api_generer()
         elif chemin == "/api/ouvrir-dossier":
@@ -732,6 +734,40 @@ class Handler(BaseHTTPRequestHandler):
         infos["fichier"] = os.path.basename(chemin)
         self._json(infos)
 
+    def _api_depot(self):
+        """Marque ou demarque une periode comme deposee.
+
+        C'est le SEUL geste qui leve le filigrane BROUILLON. Il etait jusqu'ici
+        inatteignable : marquer_depose n'avait aucun appelant, et depots.json
+        ne pouvait etre ecrit qu'a la main -- hors de toute trace, et avec le
+        risque d'y mettre une valeur que les generateurs interpretaient de
+        deux facons opposees.
+        """
+        corps = self._lire_corps_json()
+        dossier_abs, _ = self._societe_et_sortie(corps)
+        if dossier_abs is None:
+            return
+        periode = corps.get("periode")
+        action = corps.get("action")
+        try:
+            import replique_ecdf
+            if action == "marquer":
+                depot = replique_ecdf.marquer_depose(
+                    dossier_abs, periode,
+                    reference=(corps.get("reference") or "").strip() or None,
+                    note=(corps.get("note") or "").strip() or None)
+                self._json({"ok": True, "depose": True, "depot": depot})
+            elif action == "annuler":
+                fait = replique_ecdf.annuler_depot(dossier_abs, periode)
+                self._json({"ok": True, "depose": False, "annule": fait})
+            else:
+                self._json({"erreur": "action attendue : marquer ou annuler"},
+                            code=400)
+        except replique_ecdf.DepotsIllisibles as e:
+            self._json({"erreur": "%s" % e}, code=400)
+        except Exception as e:
+            self._json({"erreur": "Dépôt impossible : %s" % e}, code=500)
+
     def _api_declaration(self):
         corps = self._lire_corps_json()
         dossier_abs, dossier_sortie = self._societe_et_sortie(corps)
@@ -858,8 +894,16 @@ class Handler(BaseHTTPRequestHandler):
         if not periode:
             self._json({"erreur": "periode manquante"}, code=400)
             return
-        sortie = dossier_sortie_officiel(societes[dossier_nom]["chemin"], periode)
-        self._json({"fichiers": fichiers_produits(sortie)})
+        dossier_abs = societes[dossier_nom]["chemin"]
+        sortie = dossier_sortie_officiel(dossier_abs, periode)
+        depot = None
+        try:
+            import replique_ecdf
+            depot = replique_ecdf.statut_depot(dossier_abs, periode)
+        except Exception:
+            depot = None
+        self._json({"fichiers": fichiers_produits(sortie),
+                     "depose": depot is not None, "depot": depot})
 
     def _api_apercu_xlsx(self, query):
         """Rend un classeur en HTML, onglet par onglet.

@@ -586,6 +586,15 @@
       <div id="alerte-replique" class="alerte masque"></div>
       <p id="info-replique" class="discret masque"></p>
 
+      <div id="bloc-depot" style="margin-top:16px; padding-top:14px;
+           border-top:1px solid var(--bordure);">
+        <b style="font-size:13px;">Statut de dépôt</b>
+        <p id="texte-depot" class="discret" style="margin:4px 0 8px;"></p>
+        <div id="alerte-depot" class="alerte masque"></div>
+        <button id="bouton-marquer-depose">Marquer la période comme déposée…</button>
+        <button id="bouton-annuler-depot" class="masque">Annuler le dépôt</button>
+      </div>
+
       <button id="bouton-declaration" style="margin-top: 12px;">Déclaration officielle et annexes</button>
       <span id="chargement-declaration" class="chargement masque">Production en cours…</span>
       <div id="alerte-declaration" class="alerte masque"></div>
@@ -1375,6 +1384,7 @@ function afficherResultatGeneration(data) {
 
   derniereGeneration = data;
   chargerCases();
+  rafraichirListeFichiers();   // rapporte aussi le statut de depot
   document.getElementById("apercu-fichier").classList.add("masque");
   document.getElementById("apercu-non-disponible").classList.add("masque");
   document.getElementById("apercu-vide").classList.remove("masque");
@@ -1445,6 +1455,7 @@ async function rafraichirListeFichiers() {
     derniereGeneration.fichiers = data.fichiers;
     remplirListeFichiers(data.fichiers);
   }
+  afficherStatutDepot(data.depose, data.depot);
 }
 
 document.getElementById("bouton-replique").addEventListener("click", () =>
@@ -1728,6 +1739,60 @@ function detailDerive(c) {
   }
   div.appendChild(t);
   return div;
+}
+
+
+// ---------------------------------------------------------------------
+// Statut de depot : le seul geste qui leve le filigrane BROUILLON
+// ---------------------------------------------------------------------
+function afficherStatutDepot(depose, depot) {
+  const texte = document.getElementById("texte-depot");
+  document.getElementById("bouton-marquer-depose").classList.toggle("masque", !!depose);
+  document.getElementById("bouton-annuler-depot").classList.toggle("masque", !depose);
+  if (depose) {
+    texte.textContent = "Déposée le " + (depot && depot.depose_le || "?")
+      + (depot && depot.reference_accuse ? " — accusé " + depot.reference_accuse : "")
+      + ". Les livrables regénérés ne porteront plus le filigrane BROUILLON.";
+  } else {
+    texte.textContent = "Non déposée. Les livrables portent le filigrane "
+      + "BROUILLON — NON DÉPOSÉ. Ne marque la période qu'une fois le dépôt "
+      + "réellement effectué sur eCDF.";
+  }
+}
+
+document.getElementById("bouton-marquer-depose").addEventListener("click", async () => {
+  const reference = prompt("Référence de l'accusé de dépôt eCDF (facultatif) :") ;
+  if (reference === null) return;   // annulé
+  if (!confirm("Marquer " + periodeCourante + " comme DÉPOSÉE ?\n\n"
+               + "Les livrables regénérés ensuite ne porteront plus le filigrane "
+               + "BROUILLON. À ne faire qu'après le dépôt réel sur eCDF.")) return;
+  await actionDepot("marquer", { reference });
+});
+
+document.getElementById("bouton-annuler-depot").addEventListener("click", async () => {
+  if (!confirm("Annuler le dépôt de " + periodeCourante + " ?\n\n"
+               + "Le filigrane BROUILLON reviendra sur les livrables regénérés.")) return;
+  await actionDepot("annuler", {});
+});
+
+async function actionDepot(action, extra) {
+  afficherAlerte("alerte-depot", null);
+  try {
+    const r = await fetch("/api/depot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign(
+        { dossier: dossierCourant, periode: periodeCourante, action }, extra)),
+    });
+    const data = await r.json();
+    if (!r.ok || data.erreur) {
+      afficherAlerte("alerte-depot", data.erreur || "Échec de l'opération.");
+      return;
+    }
+    afficherStatutDepot(data.depose, data.depot);
+  } catch (e) {
+    afficherAlerte("alerte-depot", "Erreur : " + e);
+  }
 }
 
 function previsualiserFichier(f) {
