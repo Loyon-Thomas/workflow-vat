@@ -700,10 +700,40 @@ async function chargerSocietes() {
   appliquerSocieteChoisie();
 }
 
+// L'en-tete porte TOUJOURS la societe et la periode en cours. Sans cela,
+// rien a l'ecran ne permettait de s'apercevoir qu'on travaillait sur un
+// autre dossier que celui affiche a l'ecran 1 : l'erreur n'apparaissait que
+// dans le PDF, une fois produit.
+const ETAPES = {
+  1: ["Importation", "Étape 1 sur 3 · s'exécute uniquement sur cette machine, rien n'est envoyé ailleurs"],
+  2: ["Détection", "Étape 2 sur 3"],
+  3: ["Compilation", "Étape 3 sur 3"],
+};
+
+function majEnTete(etape) {
+  const [nom, sous] = ETAPES[etape];
+  document.getElementById("titre-page").textContent =
+    "Campagne TVA — " + nom + " (v0.1)";
+  const s = societes.find(x => x.dossier === dossierCourant);
+  const qui = s ? (s.denomination + " (" + s.code + ")") : null;
+  document.getElementById("sous-titre-page").textContent =
+    (qui ? qui + (periodeCourante ? " · " + periodeCourante : "") + " · " : "")
+    + sous;
+}
+
 function appliquerSocieteChoisie() {
   const dossier = document.getElementById("select-societe").value;
   const s = societes.find(x => x.dossier === dossier);
   const etat = document.getElementById("etat-ecdf-societe");
+  // Le choix de la societe prend effet IMMEDIATEMENT. Auparavant
+  // dossierCourant n'etait affecte qu'a l'inventaire : changer de societe
+  // sans relancer l'inventaire laissait la carte de la precedente affichee,
+  // et toute la campagne partait sur elle.
+  if (dossierCourant !== dossier) {
+    dossierCourant = dossier;
+    invaliderInventaire();
+  }
+  majEnTete(1);
   if (!s) { etat.textContent = ""; return; }
   document.getElementById("champ-factures").value = s.source_factures;
   if (s.pret_ecdf === false) {
@@ -855,6 +885,20 @@ document.getElementById("bouton-inventaire").addEventListener("click", async () 
   }
 });
 
+// Tout ce qui decoule d'un inventaire cesse d'etre valable des que la
+// societe change : la carte de resultats, le bouton qui mene a la detection,
+// et les etats des ecrans suivants.
+function invaliderInventaire() {
+  document.getElementById("carte-resultats").classList.add("masque");
+  afficherAlerte("alerte-import", null);
+  afficherEcartes([]);
+  periodeCourante = null;
+  derniereGeneration = null;
+  casesCourantes = [];
+  document.getElementById("corps-detection").innerHTML = "";
+  document.getElementById("bloc-generation").classList.add("masque");
+}
+
 function afficherResultats(data) {
   dossierCourant = document.getElementById("select-societe").value;
   afficherEcartes(data.ecartes);
@@ -912,16 +956,13 @@ document.getElementById("bouton-vers-detection").addEventListener("click", () =>
 document.getElementById("bouton-retour-1").addEventListener("click", () => {
   document.getElementById("ecran-2").classList.add("masque");
   document.getElementById("ecran-1").classList.remove("masque");
-  document.getElementById("titre-page").textContent = "Campagne TVA — Importation (v0.1)";
-  document.getElementById("sous-titre-page").textContent =
-    "Étape 1 sur 3 · s'exécute uniquement sur cette machine, rien n'est envoyé ailleurs";
+  majEnTete(1);
 });
 
 async function allerEcran2() {
   document.getElementById("ecran-1").classList.add("masque");
   document.getElementById("ecran-2").classList.remove("masque");
-  document.getElementById("titre-page").textContent = "Campagne TVA — Détection (v0.1)";
-  document.getElementById("sous-titre-page").textContent = "Étape 2 sur 3";
+  majEnTete(2);
   document.getElementById("corps-detection").innerHTML = "";
 
   document.getElementById("texte-apercu").textContent =
@@ -1193,16 +1234,29 @@ document.getElementById("bouton-vers-compilation").addEventListener("click", all
 document.getElementById("bouton-retour-2").addEventListener("click", () => {
   document.getElementById("ecran-3").classList.add("masque");
   document.getElementById("ecran-2").classList.remove("masque");
-  document.getElementById("titre-page").textContent = "Campagne TVA — Détection (v0.1)";
-  document.getElementById("sous-titre-page").textContent = "Étape 2 sur 3";
+  majEnTete(2);
 });
 
 async function allerEcran3() {
   document.getElementById("ecran-2").classList.add("masque");
   document.getElementById("ecran-3").classList.remove("masque");
-  document.getElementById("titre-page").textContent = "Campagne TVA — Compilation (v0.1)";
-  document.getElementById("sous-titre-page").textContent = "Étape 3 sur 3";
+  majEnTete(3);
   document.getElementById("bloc-generation").classList.add("masque");
+  // Les alertes et les compteurs d'une societe ou d'une periode precedente
+  // ne doivent pas survivre a l'arrivee sur cet ecran.
+  for (const id of ["alerte-generation", "alerte-generation-finale", "alerte-prorata",
+                    "alerte-replique", "alerte-declaration", "alerte-xml", "alerte-cases"]) {
+    afficherAlerte(id, null);
+  }
+  for (const id of ["info-replique", "info-declaration", "info-xml"]) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ""; el.classList.add("masque"); }
+  }
+  for (const id of ["g-lignes", "g-exceptions", "g-tva-amont", "g-tva-deductible"]) {
+    document.getElementById(id).textContent = "–";
+  }
+  document.getElementById("liste-fichiers").innerHTML = "";
+  document.getElementById("corps-cases").innerHTML = "";
   document.getElementById("texte-prorata").textContent = "Calcul du prorata en cours…";
   document.getElementById("table-calcul-prorata").innerHTML = "";
   try {
