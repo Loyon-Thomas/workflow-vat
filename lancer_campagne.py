@@ -741,8 +741,14 @@ def lire_lot_claude(commande_claude, paires, referentiel_txt, taux_admis,
                      timeout=600):
     prompt = construire_prompt_lot(paires, referentiel_txt, taux_admis)
     try:
-        r = subprocess.run([commande_claude, "-p", prompt],
-                            capture_output=True, text=True, timeout=timeout)
+        # FLAGS_LECTURE_SEULE, comme la lecture unitaire : cet agent lit du
+        # texte de facture non maitrise, dans le repertoire du depot. Sans ce
+        # drapeau il disposerait de ses outils par defaut -- ecriture, shell.
+        # L'oubli ici etait d'autant plus grave que le lot traite desormais
+        # la quasi-totalite du volume.
+        r = subprocess.run(
+            [commande_claude, "-p", prompt] + FLAGS_LECTURE_SEULE,
+            capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError:
         return None, "commande claude introuvable : %s" % commande_claude
     except subprocess.TimeoutExpired:
