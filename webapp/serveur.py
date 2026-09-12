@@ -46,6 +46,11 @@ import lancer_campagne as lc  # noqa: E402  (sys.path modifie juste au-dessus)
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 HOTE = "127.0.0.1"
 PORT = 8743
+ORIGINES_ADMISES = {"http://%s:%d" % (HOTE, PORT), "http://localhost:%d" % PORT}
+
+
+class CorpsInvalide(ValueError):
+    """Corps de requete inexploitable. Remonte en 400, jamais en silence."""
 
 
 def _esc(s):
@@ -196,10 +201,48 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(corps)
 
     def _lire_corps_json(self):
-        longueur = int(self.headers.get("Content-Length", 0))
-        if longueur == 0:
+        """Corps JSON de la requete, ou une erreur explicite.
+
+        Sans ces gardes, un en-tete ou un corps malformes levaient une
+        exception dans do_POST : BaseHTTPRequestHandler ne renvoyait alors
+        AUCUNE reponse -- pas meme un 500 -- et la page affichait un echec
+        reseau sans cause. Le journal du serveur etant neutralise, il ne
+        restait rien a diagnostiquer.
+        """
+        try:
+            longueur = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            raise CorpsInvalide("en-tete Content-Length illisible")
+        if longueur <= 0:
             return {}
-        return json.loads(self.rfile.read(longueur).decode("utf-8"))
+        try:
+            brut = self.rfile.read(longueur).decode("utf-8")
+        except UnicodeDecodeError:
+            raise CorpsInvalide("corps non decodable en UTF-8")
+        try:
+            corps = json.loads(brut)
+        except json.JSONDecodeError as e:
+            raise CorpsInvalide("JSON invalide : %s" % e)
+        # Tous les appelants font corps.get(...) : une liste ou un nombre
+        # provoquerait un AttributeError, donc le meme silence qu'avant.
+        if not isinstance(corps, dict):
+            raise CorpsInvalide("un objet JSON est attendu")
+        return corps
+
+    def _origine_admise(self):
+        """Refuse une requete emise par une autre page que la notre.
+
+        Le serveur n'ecoute que sur 127.0.0.1, mais cela ne protege de rien :
+        n'importe quelle page ouverte dans le navigateur peut lui envoyer des
+        requetes. Sans ce controle, un site visite pouvait declencher une
+        generation, une correction, ou l'arret du serveur.
+        Une requete sans en-tete Origin est acceptee : c'est le cas de curl
+        et des outils locaux, qui ne sont pas des navigateurs.
+        """
+        origine = self.headers.get("Origin")
+        if not origine:
+            return True
+        return origine in ORIGINES_ADMISES
 
     def _servir_fichier(self, nom, type_contenu):
         chemin = os.path.join(STATIC_DIR, nom)
@@ -213,6 +256,18 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- routes -----------------------------------------------------------
     def do_GET(self):
+        """Enveloppe de routage : traduit les refus en reponses lisibles."""
+        if not self._origine_admise():
+            self._json({"erreur": "origine non autorisee"}, code=403)
+            return
+        try:
+            self._router_get()
+        except PeriodeInvalide as e:
+            self._json({"erreur": str(e)}, code=400)
+        except CorpsInvalide as e:
+            self._json({"erreur": str(e)}, code=400)
+
+    def _router_get(self):
         analyse = urlparse(self.path)
         chemin = analyse.path
         if chemin in ("/", "/index.html"):
@@ -235,6 +290,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
+        """Enveloppe de routage : traduit les refus en reponses lisibles."""
+        if not self._origine_admise():
+            self._json({"erreur": "origine non autorisee"}, code=403)
+            return
+        try:
+            self._router_post()
+        except PeriodeInvalide as e:
+            self._json({"erreur": str(e)}, code=400)
+        except CorpsInvalide as e:
+            self._json({"erreur": str(e)}, code=400)
+
+    def _router_post(self):
         chemin = urlparse(self.path).path
         if chemin == "/api/choisir-dossier-factures":
             self._api_choisir_dossier_factures()
@@ -1488,10 +1555,30 @@ def classeur_en_html(chemin):
     return "\n".join(morceaux)
 
 
+# Forme exacte d'une periode, telle que le moteur la produit et l'attend.
+# C'est le SEUL point ou elle est admise : tout le reste en decoule.
+MOTIF_PERIODE = re.compile(r"^(20\d{2})-(Q[1-4]|M(?:0[1-9]|1[0-2])|ANNUAL)$")
+
+
+class PeriodeInvalide(ValueError):
+    """Periode refusee. Remontee en 400, jamais en 500."""
+
+
 def decouper_periode(periode):
     """'2025-Q3' -> ('2025', 'Q3'). Le suffixe est celui du moteur (Q3, M08,
     ANNUAL) : le dossier porte le meme nom que ce que contiennent les
-    fichiers qu'il abrite, rien a traduire."""
+    fichiers qu'il abrite, rien a traduire.
+
+    La forme est VERIFIEE ici, et nulle part ailleurs. Sans ce controle, une
+    periode commencant par '/' faisait s'effondrer le os.path.join plus bas :
+    periode='/usr-share/dict' donnait annee='/usr', code='share/dict', et
+    os.path.join effacait la racine -- le serveur lisait et ecrivait alors
+    n'importe ou sur le disque. Verifie par exploitation le 11/09/2026.
+    """
+    if not isinstance(periode, str) or not MOTIF_PERIODE.match(periode):
+        raise PeriodeInvalide(
+            "periode invalide : %r — attendu AAAA-Q1..Q4, AAAA-M01..M12 "
+            "ou AAAA-ANNUAL" % (periode,))
     return periode[:4], periode[5:]
 
 
@@ -1509,7 +1596,16 @@ def dossier_sortie_officiel(dossier_abs, periode=None):
     if periode is None:
         return racine
     annee, code = decouper_periode(periode)
-    return os.path.join(racine, annee, code)
+    chemin = os.path.abspath(os.path.join(racine, annee, code))
+    # Ceinture et bretelles : meme si le motif laissait passer quelque chose,
+    # le resultat doit rester SOUS la racine. On compare des chemins
+    # normalises, avec le separateur final, pour qu'un dossier voisin dont le
+    # nom commence pareil (…/EXEMPLE-CLIENT-BIS) ne soit pas pris pour un
+    # descendant.
+    if chemin != racine and not chemin.startswith(racine.rstrip(os.sep) + os.sep):
+        raise PeriodeInvalide(
+            "chemin hors du perimetre de la societe : %r" % (periode,))
+    return chemin
 
 
 def executer_apercu(dossier_abs, periode, prorata="0"):
