@@ -42,6 +42,8 @@ from urllib.parse import urlparse, parse_qs
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 import lancer_campagne as lc  # noqa: E402  (sys.path modifie juste au-dessus)
+import ecriture  # noqa: E402
+from ecriture import EtatIllisible, verrou_societe  # noqa: E402
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 HOTE = "127.0.0.1"
@@ -112,6 +114,22 @@ class Lectures:
         return True
 
     def _boucle(self, cle, dossier_abs, a_lire, commande_claude):
+        """Enveloppe du thread. Une exception hors lot (configuration
+        illisible, inventaire corrompu...) tuait le thread en laissant l'etat
+        a "en_cours" : la societe restait verrouillee -- "une lecture est deja
+        en cours" -- jusqu'au redemarrage du serveur, sans cause affichee."""
+        try:
+            self._executer(cle, dossier_abs, a_lire, commande_claude)
+        except Exception as e:
+            cause = "%s : %s" % (type(e).__name__, e)
+            with self._verrou:
+                etat = self._etats[cle]
+                etat["etat"] = "echec"
+                etat["cause"] = cause
+                etat["courant"] = None
+                etat["journal"] = (etat["journal"] + ["ERREUR : " + cause])[-60:]
+
+    def _executer(self, cle, dossier_abs, a_lire, commande_claude):
         conf = lc.charger_conf(dossier_abs)
         referentiel_txt = lc.referentiel_en_texte(dossier_abs)
         taux_admis = conf.get("taux_admis", [0.0, 0.03, 0.08, 0.14, 0.17])
@@ -266,6 +284,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": str(e)}, code=400)
         except CorpsInvalide as e:
             self._json({"erreur": str(e)}, code=400)
+        except EtatIllisible as e:
+            self._json({"erreur": "Fichier d'état illisible — rien n'a été modifié. %s" % e},
+                       code=500)
 
     def _router_get(self):
         analyse = urlparse(self.path)
@@ -286,6 +307,8 @@ class Handler(BaseHTTPRequestHandler):
             self._api_apercu_xlsx(parse_qs(analyse.query))
         elif chemin == "/api/telecharger":
             self._api_telecharger(parse_qs(analyse.query))
+        elif chemin == "/api/sauvegarde":
+            self._json(etat_sauvegarde())
         else:
             self.send_error(404)
 
@@ -300,6 +323,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreur": str(e)}, code=400)
         except CorpsInvalide as e:
             self._json({"erreur": str(e)}, code=400)
+        except EtatIllisible as e:
+            self._json({"erreur": "Fichier d'état illisible — rien n'a été modifié. %s" % e,
+                        "erreurs": {"_": "Fichier d'état illisible : %s" % e}}, code=500)
 
     def _router_post(self):
         chemin = urlparse(self.path).path
@@ -380,7 +406,8 @@ class Handler(BaseHTTPRequestHandler):
         if not societe or not corps.get("sha256"):
             self._json({"erreur": "societe ou document manquant"}, code=400)
             return
-        ok = reintegrer_ecarte(societe["chemin"], corps["sha256"])
+        with verrou_societe(societe["chemin"]):
+            ok = reintegrer_ecarte(societe["chemin"], corps["sha256"])
         self._json({"ok": ok})
 
     def _api_ajouter_transaction(self):
@@ -403,22 +430,25 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erreurs": erreurs}, code=400)
             return
 
-        manuelles = lire_manuelles(dossier_abs)
-        if any(m["sha256"] == document["sha256"] for m in manuelles):
-            self._json({"erreurs": {"_": "Cette transaction a déjà été saisie "
-                                          "(mêmes tiers, numéro, date et montants)."}},
-                        code=400)
-            return
-        try:
-            _ecrire_json(os.path.join(ext, entree["extraction"]), document)
-            manuelles.append({"sha256": document["sha256"],
-                               "entree_inventaire": entree,
-                               "saisie_le": document["saisie_le"]})
-            _ecrire_json(os.path.join(ext, FICHIER_MANUELLES), manuelles)
-            injecter_manuelles(dossier_abs)
-        except Exception as e:
-            self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
-            return
+        with verrou_societe(dossier_abs):
+            manuelles = lire_manuelles(dossier_abs)
+            if any(m["sha256"] == document["sha256"] for m in manuelles):
+                self._json({"erreurs": {"_": "Cette transaction a déjà été saisie "
+                                              "(mêmes tiers, numéro, date et montants)."}},
+                            code=400)
+                return
+            try:
+                _ecrire_json(os.path.join(ext, entree["extraction"]), document)
+                manuelles.append({"sha256": document["sha256"],
+                                   "entree_inventaire": entree,
+                                   "saisie_le": document["saisie_le"]})
+                _ecrire_json(os.path.join(ext, FICHIER_MANUELLES), manuelles)
+                injecter_manuelles(dossier_abs)
+            except EtatIllisible:
+                raise
+            except Exception as e:
+                self._json({"erreurs": {"_": "Écriture impossible : %s" % e}}, code=500)
+                return
         self._json({"ok": True, "libelle": document["fichier"],
                      "total_manuelles": len(manuelles)})
 
@@ -436,21 +466,32 @@ class Handler(BaseHTTPRequestHandler):
             return
         societe = societes[dossier_nom]
         dossier_abs = societe["chemin"]
+        # Refait pendant une lecture, l'inventaire reecrit _inventaire.json
+        # sous le thread, qui travaille sur la liste d'avant : un document
+        # retire ou deplace serait lu quand meme, et l'OCR inscrit dans un
+        # fichier deja remplace. On refuse plutot que de parier.
+        lecture = LECTURES.etat(dossier_nom)
+        if lecture and lecture.get("etat") == "en_cours":
+            self._json({"erreur": "Une lecture est en cours pour cette société : "
+                                  "arrête-la ou attends sa fin avant de refaire "
+                                  "l'inventaire."}, code=409)
+            return
         cmd = [sys.executable, lc.SCRIPT_ANNEXES, "inventaire", "--dossier", dossier_abs]
         if factures:
             cmd += ["--factures", factures]
-        r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
-        if r.returncode != 0:
-            self._json({"erreur": (r.stderr or r.stdout
-                                    or "echec de l'inventaire").strip()}, code=400)
-            return
-        # etape_inventaire reecrit _inventaire.json en entier : les
-        # transactions saisies a la main en disparaitraient. On les remet.
-        # Avant toute lecture : sortir les rappels de paiement. Les lire
-        # couterait des jetons pour un document qui ne porte pas de TVA.
-        rappels = ecarter_rappels(dossier_abs)
-        nb_manuelles = injecter_manuelles(dossier_abs)
-        inv = lc.lire_inventaire(dossier_abs)
+        with verrou_societe(dossier_abs):
+            r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
+            if r.returncode != 0:
+                self._json({"erreur": (r.stderr or r.stdout
+                                        or "echec de l'inventaire").strip()}, code=400)
+                return
+            # etape_inventaire reecrit _inventaire.json en entier : les
+            # transactions saisies a la main en disparaitraient. On les remet.
+            # Avant toute lecture : sortir les rappels de paiement. Les lire
+            # couterait des jetons pour un document qui ne porte pas de TVA.
+            rappels = ecarter_rappels(dossier_abs)
+            nb_manuelles = injecter_manuelles(dossier_abs)
+            inv = lc.lire_inventaire(dossier_abs)
         nb_natifs = sum(1 for d in inv["documents"] if d["type"] == "natif")
         nb_manuel = sum(1 for d in inv["documents"] if d["type"] == "manuel")
         nb_scans = len(inv["documents"]) - nb_natifs - nb_manuel
@@ -493,7 +534,8 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(os.path.join(dossier_abs, "extraction", "_inventaire.json")):
             self._json({"erreur": "Lance d'abord l'inventaire."}, code=400)
             return
-        inv = lc.lire_inventaire(dossier_abs)
+        with verrou_societe(dossier_abs):
+            inv = lc.lire_inventaire(dossier_abs)
         a_lire = [d for d in inv["documents"] if not lc.deja_extrait(dossier_abs, d)]
         if not a_lire:
             self._json({"etat": "termine", "total": 0, "lues": 0,
@@ -541,7 +583,8 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(inv_path):
             self._json({"erreur": "Lance d'abord l'inventaire."}, code=400)
             return
-        inv = lc.lire_inventaire(dossier_abs)
+        with verrou_societe(dossier_abs):
+            inv = lc.lire_inventaire(dossier_abs)
         a_lire = [d for d in inv["documents"] if not lc.deja_extrait(dossier_abs, d)]
         if not a_lire:
             self._json({"total": 0, "lues": 0, "a_verifier": 0, "journal": []})
@@ -784,6 +827,10 @@ class Handler(BaseHTTPRequestHandler):
             chemin, infos = declaration_officielle.generer(dossier_abs, dossier_sortie)
         except FileNotFoundError as e:
             self._json({"erreur": "%s" % e}, code=400)
+            return
+        except declaration_officielle.DeclarationInexploitable as e:
+            # Refus delibere, pas une panne : aucun PDF n'a ete produit.
+            self._json({"erreur": "Déclaration non produite : %s" % e}, code=422)
             return
         except Exception as e:
             self._json({"erreur": "Document impossible : %s" % e}, code=500)
@@ -1043,10 +1090,67 @@ class Handler(BaseHTTPRequestHandler):
         if not sha or not os.path.isfile(p):
             self._json({"erreur": "extraction introuvable pour cette facture"}, code=404)
             return
-        doc = json.load(open(p, encoding="utf-8"))
-        doc[champ] = valeur
-        json.dump(doc, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+        with verrou_societe(dossier_abs):
+            doc = ecriture.lire_json(p, dict, None)
+            doc[champ] = valeur
+            ecriture.ecrire_json(p, doc)
         self._json({"ok": True})
+
+
+JOURNAL_SAUVEGARDE = os.path.expanduser("~/campagne_tva_sauvegarde.log")
+SAUVEGARDE_JOURS_MAX = 2
+
+
+def etat_sauvegarde(chemin=JOURNAL_SAUVEGARDE, maintenant=None):
+    """Resume du journal de sauvegarde pour l'en-tete de la page.
+
+    Le journal existait, mais personne ne le lit : la sauvegarde a ete
+    REPORTEE chaque soir du 8 au 14 septembre sans que rien ne le montre.
+    Alerte si la derniere tentative n'est pas OK, ou si la derniere reussie
+    date de plus de SAUVEGARDE_JOURS_MAX jours. Les essais (--essai) ne
+    comptent pas."""
+    maintenant = maintenant or dt.datetime.now()
+    absent = {"alerte": True, "statut": "ABSENT",
+              "message": "Aucune sauvegarde pCloud n'a jamais été journalisée."}
+    if not os.path.isfile(chemin):
+        return absent
+    tentatives, courante = [], None
+    with io.open(chemin, encoding="utf-8", errors="replace") as f:
+        for ligne in f:
+            m = re.match(r"^=== (\d\d/\d\d/\d{4} \d\d:\d\d:\d\d)\s*(\[ESSAI\])?", ligne)
+            if m:
+                courante = None if m.group(2) else {
+                    "le": dt.datetime.strptime(m.group(1), "%d/%m/%Y %H:%M:%S"),
+                    "statut": None, "detail": ""}
+                if courante:
+                    tentatives.append(courante)
+                continue
+            m = re.match(r"^(OK|REPORTE|ECHEC)\b\s*(?:--|:)?\s*(.*)", ligne)
+            if courante is not None and m and courante["statut"] is None:
+                courante["statut"], courante["detail"] = m.group(1), m.group(2).strip()
+    if not tentatives:
+        return absent
+    derniere = tentatives[-1]
+    ok = [t for t in tentatives if t["statut"] == "OK"]
+    dernier_ok = ok[-1]["le"] if ok else None
+    jours = (maintenant - dernier_ok).days if dernier_ok else None
+    alerte = derniere["statut"] != "OK" or jours is None or jours > SAUVEGARDE_JOURS_MAX
+    message = ""
+    if alerte:
+        if dernier_ok is None:
+            message = "Aucune sauvegarde pCloud réussie à ce jour."
+        else:
+            message = ("Sauvegarde pCloud : dernière réussie le %s (il y a %d jour%s)."
+                       % (dernier_ok.strftime("%d/%m/%Y"), jours, "s" if jours > 1 else ""))
+        if derniere["statut"] != "OK":
+            message += " Dernière tentative le %s : %s." % (
+                derniere["le"].strftime("%d/%m/%Y"),
+                (derniere["statut"] or "résultat inconnu")
+                + (" — " + derniere["detail"].rstrip(". ") if derniere["detail"] else ""))
+    return {"alerte": alerte, "statut": derniere["statut"],
+            "derniere_tentative": derniere["le"].isoformat(),
+            "dernier_ok": dernier_ok.isoformat() if dernier_ok else None,
+            "jours_depuis_ok": jours, "message": message.strip()}
 
 
 # Champs de l'extraction qu'on autorise a corriger depuis le tableau -- des
@@ -1265,8 +1369,7 @@ def ecrire_societe_yaml(cible, v):
 
     os.makedirs(cible, exist_ok=True)
     chemin = os.path.join(cible, "societe.yaml")
-    with io.open(chemin, "w", encoding="utf-8") as f:
-        f.write(texte)
+    ecriture.ecrire_texte(chemin, texte)
     return chemin
 
 
@@ -1293,59 +1396,51 @@ def _dossier_extraction(dossier_abs):
 
 
 def lire_manuelles(dossier_abs):
-    p = os.path.join(_dossier_extraction(dossier_abs), FICHIER_MANUELLES)
-    if not os.path.isfile(p):
-        return []
-    try:
-        with io.open(p, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    # Illisible = EtatIllisible, jamais []. Renvoyer une liste vide faisait
+    # REECRIRE le fichier avec la seule saisie suivante : toutes les autres
+    # etaient perdues, sans message.
+    return ecriture.lire_json(
+        os.path.join(_dossier_extraction(dossier_abs), FICHIER_MANUELLES), list, [])
 
 
 def _ecrire_json(chemin, donnees):
-    os.makedirs(os.path.dirname(chemin), exist_ok=True)
-    with io.open(chemin, "w", encoding="utf-8") as f:
-        json.dump(donnees, f, ensure_ascii=False, indent=2)
+    ecriture.ecrire_json(chemin, donnees)
 
 
 def injecter_manuelles(dossier_abs):
     """Reinjecte les saisies dans _inventaire.json. Idempotent : une saisie
     deja presente n'est pas dupliquee."""
-    ext = _dossier_extraction(dossier_abs)
-    chemin_inv = os.path.join(ext, "_inventaire.json")
-    if not os.path.isfile(chemin_inv):
-        return 0
-    manuelles = lire_manuelles(dossier_abs)
-    if not manuelles:
-        return 0
-    with io.open(chemin_inv, encoding="utf-8") as f:
-        inv = json.load(f)
-    connus = {d.get("sha256") for d in inv.get("documents", [])}
-    ajoutees = 0
-    for m in manuelles:
-        if m["sha256"] in connus:
-            continue
-        inv.setdefault("documents", []).append(m["entree_inventaire"])
-        ajoutees += 1
-    if ajoutees:
-        inv["nb_fichiers"] = len(inv["documents"])
-        _ecrire_json(chemin_inv, inv)
-    return ajoutees
+    with verrou_societe(dossier_abs):
+        ext = _dossier_extraction(dossier_abs)
+        chemin_inv = os.path.join(ext, "_inventaire.json")
+        if not os.path.isfile(chemin_inv):
+            return 0
+        manuelles = lire_manuelles(dossier_abs)
+        if not manuelles:
+            return 0
+        with io.open(chemin_inv, encoding="utf-8") as f:
+            inv = json.load(f)
+        connus = {d.get("sha256") for d in inv.get("documents", [])}
+        ajoutees = 0
+        for m in manuelles:
+            if m["sha256"] in connus:
+                continue
+            inv.setdefault("documents", []).append(m["entree_inventaire"])
+            ajoutees += 1
+        if ajoutees:
+            inv["nb_fichiers"] = len(inv["documents"])
+            _ecrire_json(chemin_inv, inv)
+        return ajoutees
 
 
 FICHIER_ECARTES = "_ecartes.json"
 
 
 def lire_ecartes(dossier_abs):
-    p = os.path.join(_dossier_extraction(dossier_abs), FICHIER_ECARTES)
-    if not os.path.isfile(p):
-        return []
-    try:
-        with io.open(p, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    # Meme raison que lire_manuelles : un [] silencieux effacait les ecartes
+    # connus au passage suivant, et les rappels revenaient a la lecture.
+    return ecriture.lire_json(
+        os.path.join(_dossier_extraction(dossier_abs), FICHIER_ECARTES), list, [])
 
 
 def ecarter_rappels(dossier_abs):
@@ -1356,58 +1451,60 @@ def ecarter_rappels(dossier_abs):
     et conserves dans _ecartes.json avec leur motif, pour rester visibles
     et reintegrables. Rien n'est supprime, rien n'est silencieux.
     """
-    ext = _dossier_extraction(dossier_abs)
-    chemin_inv = os.path.join(ext, "_inventaire.json")
-    if not os.path.isfile(chemin_inv):
-        return []
-    with io.open(chemin_inv, encoding="utf-8") as f:
-        inv = json.load(f)
-    ecartes = lire_ecartes(dossier_abs)
-    deja = {e["sha256"] for e in ecartes}
-    gardes, nouveaux = [], []
-    for d in inv.get("documents", []):
-        # Une saisie manuelle n'est jamais un rappel, et un document deja
-        # lu n'a pas a etre rejuge.
-        if d.get("type") == "manuel" or lc.deja_extrait(dossier_abs, d):
-            gardes.append(d); continue
-        texte = lc.texte_extrait(dossier_abs, d)
-        rappel, motif = lc.est_rappel(d.get("fichier"), texte)
-        if rappel and d["sha256"] not in deja:
-            nouveaux.append({"sha256": d["sha256"], "fichier": d["fichier"],
-                              "motif": motif, "entree_inventaire": d,
-                              "ecarte_le": dt.datetime.now().isoformat(timespec="seconds")})
-        elif rappel:
-            pass  # deja connu comme ecarte : on ne le remet pas dans l'inventaire
-        else:
-            gardes.append(d)
-    if nouveaux:
-        ecartes += nouveaux
-        _ecrire_json(os.path.join(ext, FICHIER_ECARTES), ecartes)
-    if len(gardes) != len(inv.get("documents", [])):
-        inv["documents"] = gardes
-        inv["nb_fichiers"] = len(gardes)
-        _ecrire_json(chemin_inv, inv)
-    return nouveaux
+    with verrou_societe(dossier_abs):
+        ext = _dossier_extraction(dossier_abs)
+        chemin_inv = os.path.join(ext, "_inventaire.json")
+        if not os.path.isfile(chemin_inv):
+            return []
+        with io.open(chemin_inv, encoding="utf-8") as f:
+            inv = json.load(f)
+        ecartes = lire_ecartes(dossier_abs)
+        deja = {e["sha256"] for e in ecartes}
+        gardes, nouveaux = [], []
+        for d in inv.get("documents", []):
+            # Une saisie manuelle n'est jamais un rappel, et un document deja
+            # lu n'a pas a etre rejuge.
+            if d.get("type") == "manuel" or lc.deja_extrait(dossier_abs, d):
+                gardes.append(d); continue
+            texte = lc.texte_extrait(dossier_abs, d)
+            rappel, motif = lc.est_rappel(d.get("fichier"), texte)
+            if rappel and d["sha256"] not in deja:
+                nouveaux.append({"sha256": d["sha256"], "fichier": d["fichier"],
+                                  "motif": motif, "entree_inventaire": d,
+                                  "ecarte_le": dt.datetime.now().isoformat(timespec="seconds")})
+            elif rappel:
+                pass  # deja connu comme ecarte : on ne le remet pas dans l'inventaire
+            else:
+                gardes.append(d)
+        if nouveaux:
+            ecartes += nouveaux
+            _ecrire_json(os.path.join(ext, FICHIER_ECARTES), ecartes)
+        if len(gardes) != len(inv.get("documents", [])):
+            inv["documents"] = gardes
+            inv["nb_fichiers"] = len(gardes)
+            _ecrire_json(chemin_inv, inv)
+        return nouveaux
 
 
 def reintegrer_ecarte(dossier_abs, sha):
     """Remet un document ecarte dans l'inventaire. Le jugement automatique
     doit pouvoir etre defait : c'est ce qui rend l'ecartement acceptable."""
-    ext = _dossier_extraction(dossier_abs)
-    ecartes = lire_ecartes(dossier_abs)
-    cible = next((e for e in ecartes if e["sha256"] == sha), None)
-    if cible is None:
-        return False
-    chemin_inv = os.path.join(ext, "_inventaire.json")
-    with io.open(chemin_inv, encoding="utf-8") as f:
-        inv = json.load(f)
-    if not any(d["sha256"] == sha for d in inv.get("documents", [])):
-        inv.setdefault("documents", []).append(cible["entree_inventaire"])
-        inv["nb_fichiers"] = len(inv["documents"])
-        _ecrire_json(chemin_inv, inv)
-    _ecrire_json(os.path.join(ext, FICHIER_ECARTES),
-                  [e for e in ecartes if e["sha256"] != sha])
-    return True
+    with verrou_societe(dossier_abs):
+        ext = _dossier_extraction(dossier_abs)
+        ecartes = lire_ecartes(dossier_abs)
+        cible = next((e for e in ecartes if e["sha256"] == sha), None)
+        if cible is None:
+            return False
+        chemin_inv = os.path.join(ext, "_inventaire.json")
+        with io.open(chemin_inv, encoding="utf-8") as f:
+            inv = json.load(f)
+        if not any(d["sha256"] == sha for d in inv.get("documents", [])):
+            inv.setdefault("documents", []).append(cible["entree_inventaire"])
+            inv["nb_fichiers"] = len(inv["documents"])
+            _ecrire_json(chemin_inv, inv)
+        _ecrire_json(os.path.join(ext, FICHIER_ECARTES),
+                      [e for e in ecartes if e["sha256"] != sha])
+        return True
 
 
 def marquer_texte_ocr(dossier_abs, sha, nom_texte):
@@ -1417,19 +1514,20 @@ def marquer_texte_ocr(dossier_abs, sha, nom_texte):
     le dire permet de savoir d'ou vient son texte le jour ou une extraction
     parait douteuse.
     """
-    chemin_inv = os.path.join(_dossier_extraction(dossier_abs), "_inventaire.json")
-    if not os.path.isfile(chemin_inv):
-        return
-    with io.open(chemin_inv, encoding="utf-8") as f:
-        inv = json.load(f)
-    change = False
-    for d in inv.get("documents", []):
-        if d.get("sha256") == sha and not d.get("texte"):
-            d["texte"] = nom_texte
-            d["type"] = "ocr"
-            change = True
-    if change:
-        _ecrire_json(chemin_inv, inv)
+    with verrou_societe(dossier_abs):
+        chemin_inv = os.path.join(_dossier_extraction(dossier_abs), "_inventaire.json")
+        if not os.path.isfile(chemin_inv):
+            return
+        with io.open(chemin_inv, encoding="utf-8") as f:
+            inv = json.load(f)
+        change = False
+        for d in inv.get("documents", []):
+            if d.get("sha256") == sha and not d.get("texte"):
+                d["texte"] = nom_texte
+                d["type"] = "ocr"
+                change = True
+        if change:
+            _ecrire_json(chemin_inv, inv)
 
 
 def valider_transaction(corps, conf):

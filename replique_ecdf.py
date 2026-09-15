@@ -25,7 +25,10 @@ import os
 import sys
 
 REPO = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "src"))
+import ecriture  # noqa: E402
+from xml.sax.saxutils import escape as echapper  # noqa: E402
 import annexes_tva as at  # noqa: E402  (sys.path modifie juste au-dessus)
 
 from reportlab.lib import colors  # noqa: E402
@@ -122,8 +125,7 @@ def marquer_depose(dossier_abs, periode, reference=None, note=None):
         "reference_accuse": reference or None,
         "note": note or None,
     }
-    with open(chemin_depots(dossier_abs), "w", encoding="utf-8") as f:
-        json.dump(depots, f, ensure_ascii=False, indent=2, sort_keys=True)
+    ecriture.ecrire_json(chemin_depots(dossier_abs), depots, sort_keys=True)
     return depots[periode]
 
 
@@ -131,8 +133,7 @@ def annuler_depot(dossier_abs, periode):
     depots = lire_depots(dossier_abs)
     if periode in depots:
         del depots[periode]
-        with open(chemin_depots(dossier_abs), "w", encoding="utf-8") as f:
-            json.dump(depots, f, ensure_ascii=False, indent=2, sort_keys=True)
+        ecriture.ecrire_json(chemin_depots(dossier_abs), depots, sort_keys=True)
         return True
     return False
 
@@ -245,11 +246,12 @@ def _decor_page(filigrane, cabinet, nom_fichier):
 
 
 def _bloc_cabinet(cabinet, styles):
-    lignes = [("<b>%s</b>" % cabinet.get("nom", "")).strip()]
+    # Texte de configuration echappe : « & » ou « < » seraient lus comme balisage.
+    lignes = [("<b>%s</b>" % echapper(str(cabinet.get("nom", "")))).strip()]
     for x in (cabinet.get("adresse") or []):
-        lignes.append(str(x))
+        lignes.append(echapper(str(x)))
     for x in (cabinet.get("contact") or []):
-        lignes.append(str(x))
+        lignes.append(echapper(str(x)))
     return Paragraph("<br/>".join(l for l in lignes if l), styles["cabinet"])
 
 
@@ -265,7 +267,7 @@ def _tableau_identite(declare, nom_profil, profil, depot, conf_societe, styles):
     # L'origine du prorata est une phrase entiere : elle doit s'envelopper,
     # pas deborder de la cellule.
     prorata = Paragraph("<b>%g %%</b><br/><font size=7.5 color='#555555'>%s</font>"
-                        % (declare.get("prorata_pct", 0), origine), styles["cellule"])
+                        % (declare.get("prorata_pct", 0), echapper(origine)), styles["cellule"])
     donnees = [
         ["Société", declare.get("denomination") or declare.get("code")],
         ["Matricule", conf_societe.get("matricule") or "—"],
@@ -297,7 +299,7 @@ def _tableau_section(postes, styles):
     for p in postes:
         lignes.append([
             p["case_base"] or "",
-            Paragraph(p["libelle"], styles["libelle"]),
+            Paragraph(echapper(str(p["libelle"])), styles["libelle"]),
             fmt_montant(p["base"]),
             p["case_taxe"] or "",
             fmt_montant(p["taxe"]),
@@ -374,7 +376,7 @@ def _encadre_solde(case, valeur, styles):
 def _tableau_non_mappes(non_mappes, styles):
     lignes = [["Poste", "Base", "Taxe"]]
     for poste, base, taxe in non_mappes:
-        lignes.append([Paragraph(str(poste), styles["libelle"]),
+        lignes.append([Paragraph(echapper(str(poste)), styles["libelle"]),
                        fmt_montant(base), fmt_montant(taxe)])
     t = Table(lignes, colWidths=[122 * mm, 24 * mm, 24 * mm], repeatRows=1)
     t.setStyle(TableStyle([
@@ -442,7 +444,7 @@ def generer_replique(dossier_abs, dossier_sortie, repo=REPO, chemin_sortie=None)
     hist.append(_bloc_cabinet(cabinet, styles))
     hist.append(Spacer(1, 10 * mm))
     hist.append(Paragraph("Déclaration TVA — contenu à déposer", styles["titre"]))
-    hist.append(Paragraph(declare.get("periode_libelle") or declare.get("periode", ""),
+    hist.append(Paragraph(echapper(declare.get("periode_libelle") or declare.get("periode", "")),
                           styles["soustitre"]))
     hist.append(Paragraph(MENTION, styles["mention"]))
     hist.append(Spacer(1, 4 * mm))

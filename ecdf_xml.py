@@ -32,7 +32,9 @@ import xml.etree.ElementTree as ET
 from decimal import Decimal, ROUND_HALF_UP
 
 REPO = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "src"))
+import ecriture  # noqa: E402
 import annexes_tva as at  # noqa: E402
 
 NS = "http://www.ctie.etat.lu/2011/ecdf"
@@ -291,16 +293,11 @@ def journal_envois(dossier_sortie):
 
 def inscrire_journal(dossier_sortie, entree):
     p = journal_envois(dossier_sortie)
-    envois = []
-    if os.path.isfile(p):
-        try:
-            with open(p, encoding="utf-8") as f:
-                envois = json.load(f)
-        except Exception:
-            envois = []
+    # Un journal illisible n'est PAS remis a zero : le reecrire avec la
+    # seule nouvelle entree effacerait la trace des productions passees.
+    envois = ecriture.lire_json(p, list, [])
     envois.append(entree)
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(envois, f, ensure_ascii=False, indent=2)
+    ecriture.ecrire_json(p, envois)
     return p
 
 

@@ -29,6 +29,15 @@ JOURNAL="$HOME/campagne_tva_sauvegarde.log"
 ESSAI=""
 [ "${1:-}" = "--essai" ] && ESSAI="--dry-run"
 
+# Le journal seul ne suffit pas : du 8 au 14 septembre la sauvegarde a ete
+# REPORTEE chaque soir sans que personne ne le lise. Toute issue autre que
+# OK produit donc une notification macOS (l'en-tete de la page le signale
+# aussi). Pas de notification en mode essai.
+notifier() {
+    [ -n "$ESSAI" ] && return 0
+    osascript -e "display notification \"$1\" with title \"Campagne TVA — sauvegarde\" sound name \"Basso\"" >/dev/null 2>&1 || true
+}
+
 {
 echo "=== $(date '+%d/%m/%Y %H:%M:%S') ${ESSAI:+[ESSAI]} ==="
 
@@ -43,6 +52,7 @@ fi
 # que c'est bien un volume monte, pas un simple dossier.
 if ! mount | grep -q "on $HOME/pCloud Drive "; then
     echo "REPORTE : pCloud n'est pas monte -- rien n'a ete copie."
+    notifier "pCloud n'est pas monté — sauvegarde non faite."
     exit 0
 fi
 
@@ -52,6 +62,7 @@ fi
 # part et echoue a mi-parcours, laissant une sauvegarde tronquee.
 if ! ls "$HOME/pCloud Drive" >/dev/null 2>&1; then
     echo "REPORTE : pCloud est monte mais ne repond pas -- rien n'a ete copie."
+    notifier "pCloud ne répond pas — sauvegarde non faite. Relancer pCloud."
     exit 0
 fi
 
@@ -79,6 +90,7 @@ if [ $CODE -eq 0 ]; then
     echo "OK -- $(cd "$SOURCE" && find . -type f ! -path './.git/*' | wc -l | tr -d ' ') fichiers en source"
 else
     echo "ECHEC rsync (code $CODE)"
+    notifier "Échec de la copie (rsync code $CODE) — voir $JOURNAL"
 fi
 exit $CODE
 } 2>&1 | tee -a "$JOURNAL"

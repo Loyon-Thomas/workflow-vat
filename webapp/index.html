@@ -34,6 +34,11 @@
   }
   header h1 { margin: 0; font-size: 18px; font-weight: 600; }
   header p { margin: 4px 0 0; color: var(--discret); font-size: 13px; }
+  header p#alerte-sauvegarde {
+    color: var(--alerte-texte); background: var(--alerte-fond);
+    border: 1px solid var(--alerte-bordure); border-radius: 6px;
+    padding: 4px 10px; margin-top: 8px; display: inline-block;
+  }
   #lien-quitter { color: var(--discret); font-size: 13px; text-decoration: none; white-space: nowrap; }
   #lien-quitter:hover { color: var(--alerte-texte); text-decoration: underline; }
   main { max-width: 900px; margin: 24px auto; padding: 0 24px 64px; }
@@ -200,6 +205,7 @@
   <div>
     <h1 id="titre-page">Campagne TVA — Importation (v0.1)</h1>
     <p id="sous-titre-page">Étape 1 sur 3 · s'exécute uniquement sur cette machine, rien n'est envoyé ailleurs</p>
+    <p id="alerte-sauvegarde" class="masque"></p>
   </div>
   <a href="#" id="lien-quitter">Fermer l'application</a>
 </header>
@@ -719,6 +725,22 @@ const ETAPES = {
   3: ["Compilation", "Étape 3 sur 3"],
 };
 
+// Une sauvegarde qui echoue sans que personne ne le voie n'est pas une
+// sauvegarde. Verifiee au chargement puis toutes les heures.
+async function verifierSauvegarde() {
+  const el = document.getElementById("alerte-sauvegarde");
+  try {
+    const r = await fetch("/api/sauvegarde");
+    const s = await r.json();
+    el.textContent = "⚠ " + s.message;
+    el.classList.toggle("masque", !s.alerte);
+  } catch (_) {
+    // serveur arrete : l'erreur est deja visible ailleurs
+  }
+}
+verifierSauvegarde();
+setInterval(verifierSauvegarde, 3600 * 1000);
+
 function majEnTete(etape) {
   const [nom, sous] = ETAPES[etape];
   document.getElementById("titre-page").textContent =
@@ -1045,6 +1067,10 @@ function texteAvancement(e) {
   if (e.etat === "termine") {
     return "Lecture terminée : " + e.lues + " lue(s), " + e.a_verifier +
            " à vérifier sur " + e.total + ". ";
+  }
+  if (e.etat === "echec") {
+    return "Lecture interrompue par une erreur : " + (e.cause || "cause inconnue") +
+           " — les factures déjà lues (" + e.lues + ") sont conservées. ";
   }
   if (e.etat === "arrete") {
     return "Lecture interrompue à " + e.faites + " sur " + e.total +

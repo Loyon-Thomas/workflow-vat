@@ -27,6 +27,9 @@ import tempfile
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ecriture  # noqa: E402
+
 REPO = os.path.dirname(os.path.abspath(__file__))
 DOSSIERS = os.path.join(REPO, "dossiers")
 SCRIPT_ANNEXES = os.path.join(REPO, "src", "annexes_tva.py")
@@ -283,7 +286,7 @@ def resoudre_commande_claude():
     if not (os.path.isfile(chemin) and os.access(chemin, os.X_OK)):
         alerte("Ce fichier n'est pas un executable : %s" % chemin, critique=True)
         return None
-    json.dump({"claude": chemin}, open(CONFIG_LOCAL, "w", encoding="utf-8"))
+    ecriture.ecrire_json(CONFIG_LOCAL, {"claude": chemin})
     return chemin
 
 
@@ -471,10 +474,9 @@ def valider_extraction(doc):
 def ecrire_a_verifier(dossier_abs, doc, raison):
     sha12 = doc["extraction"][:-len(".json")]
     p = os.path.join(dossier_abs, "extraction", "A_VERIFIER-%s.txt" % sha12)
-    with open(p, "w", encoding="utf-8") as f:
-        f.write("Fichier : %s\nChemin  : %s\nRaison  : %s\nDate    : %s\n"
-                 % (doc["fichier"], doc["chemin"], raison,
-                    dt.datetime.now().isoformat(timespec="seconds")))
+    ecriture.ecrire_texte(p, "Fichier : %s\nChemin  : %s\nRaison  : %s\nDate    : %s\n"
+                          % (doc["fichier"], doc["chemin"], raison,
+                             dt.datetime.now().isoformat(timespec="seconds")))
 
 
 # ---------------------------------------------------------------------
@@ -654,8 +656,7 @@ def ocriser(dossier_abs, doc, langues=None, timeout=300):
         texte = _pdftotext(temporaire)
         if not texte or len(texte.strip()) < 40:
             return None, "OCR sans resultat exploitable"
-        with open(cible_texte, "w", encoding="utf-8") as f:
-            f.write(texte)
+        ecriture.ecrire_texte(cible_texte, texte)
         return nom_texte, None
     except subprocess.TimeoutExpired:
         return None, "delai d'OCR depasse"
@@ -817,9 +818,7 @@ def traiter_lot(commande_claude, dossier_abs, docs, referentiel_txt, taux_admis,
                     a_verifier += 1
                 else:
                     objet.pop("id", None)
-                    with open(chemin_extraction(dossier_abs, doc), "w",
-                               encoding="utf-8") as f:
-                        json.dump(objet, f, ensure_ascii=False, indent=2)
+                    ecriture.ecrire_json(chemin_extraction(dossier_abs, doc), objet)
                     journal.log("    lu : %s" % doc["fichier"])
                     lues += 1
     for doc in sans_texte:
@@ -847,8 +846,7 @@ def traiter_document(commande_claude, dossier_abs, doc, referentiel_txt, taux_ad
         ecrire_a_verifier(dossier_abs, doc, err)
         journal.log("    a verifier : %s (%s)" % (fichier, err))
         return False
-    with open(chemin_extraction(dossier_abs, doc), "w", encoding="utf-8") as f:
-        json.dump(extrait, f, ensure_ascii=False, indent=2)
+    ecriture.ecrire_json(chemin_extraction(dossier_abs, doc), extrait)
     journal.log("    lu : %s" % fichier)
     return True
 
